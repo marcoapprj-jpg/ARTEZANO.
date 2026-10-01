@@ -105,6 +105,7 @@ export default function NewOrder() {
       qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["customers"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["receivables"] });
     } catch (e) {
       pre?.close();
       const detail = e instanceof ApiError ? (e.body as { detail?: unknown } | null)?.detail : null;

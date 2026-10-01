@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -17,3 +18,14 @@ class Packaging(PackagingInput):
 
 class PackagingAdjust(BaseModel):
     delta: int
+
+
+class StockLogEntry(BaseModel):
+    id: str
+    packaging_id: str
+    packaging_name: str
+    delta: int
+    kind: Literal["inicial", "entrada", "ajuste", "pedido", "devolucao"]
+    balance: int
+    order_number: Optional[int] = None
+    created_at: str

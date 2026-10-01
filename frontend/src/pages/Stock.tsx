@@ -1,14 +1,23 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, PackagePlus, Pencil, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, History, PackagePlus, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
-import type { Packaging, PackagingInput } from "@/lib/types";
+import type { Packaging, PackagingInput, StockKind, StockLogEntry } from "@/lib/types";
+import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+const KIND_LABELS: Record<StockKind, string> = {
+  inicial: "Estoque inicial",
+  entrada: "Entrada",
+  ajuste: "Ajuste manual",
+  pedido: "Baixa",
+  devolucao: "Devolução (pedido excluído)",
+};
 
 interface FormState {
   name: string;
@@ -31,8 +40,17 @@ export default function Stock() {
   const [form, setForm] = useState<FormState>(EMPTY);
   const [entryFor, setEntryFor] = useState<Packaging | null>(null);
   const [entryQty, setEntryQty] = useState("");
+  const [historyFor, setHistoryFor] = useState<Packaging | null>(null);
+  const historyQ = useQuery({
+    queryKey: ["packaging-history", historyFor?.id],
+    queryFn: () => apiGet<StockLogEntry[]>(`/packaging/${historyFor?.id}/history`),
+    enabled: !!historyFor,
+  });
 
-  const refresh = () => qc.invalidateQueries({ queryKey: ["packaging"] });
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["packaging"] });
+    qc.invalidateQueries({ queryKey: ["packaging-history"] });
+  };
 
   const saveM = useMutation({
     mutationFn: (body: PackagingInput) =>
@@ -152,17 +170,27 @@ export default function Stock() {
                   {p.quantity}
                   <span className="ml-1 text-sm font-medium text-muted-foreground">un.</span>
                 </p>
-                <Button
-                  variant="outline"
-                  className="rounded-xl border-caramel/40 text-caramel hover:text-caramel"
-                  onClick={() => {
-                    setEntryFor(p);
-                    setEntryQty("");
-                  }}
-                  data-testid={`btn-entry-packaging-${p.id}`}
-                >
-                  <PackagePlus /> Entrada
-                </Button>
+                <div className="flex gap-1.5">
+                  <Button
+                    variant="ghost"
+                    className="rounded-xl text-[#6B4934]"
+                    onClick={() => setHistoryFor(p)}
+                    data-testid={`btn-history-packaging-${p.id}`}
+                  >
+                    <History /> Histórico
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="rounded-xl border-caramel/40 text-caramel hover:text-caramel"
+                    onClick={() => {
+                      setEntryFor(p);
+                      setEntryQty("");
+                    }}
+                    data-testid={`btn-entry-packaging-${p.id}`}
+                  >
+                    <PackagePlus /> Entrada
+                  </Button>
+                </div>
               </div>
             </li>
           );
@@ -209,6 +237,42 @@ export default function Stock() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!historyFor} onOpenChange={(v) => !v && setHistoryFor(null)}>
+        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-md" data-testid="history-dialog">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl">Histórico · {historyFor?.name}</DialogTitle>
+            <DialogDescription>Entradas, ajustes, baixas por pedido e devoluções (mais recentes primeiro).</DialogDescription>
+          </DialogHeader>
+          {historyQ.isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
+          {historyQ.isError && <p className="text-sm text-destructive" data-testid="history-error">Não foi possível carregar.</p>}
+          {!historyQ.isLoading && !historyQ.isError && (historyQ.data?.length ?? 0) === 0 && (
+            <p className="py-6 text-center text-sm text-muted-foreground" data-testid="history-empty">Nenhuma movimentação registrada ainda.</p>
+          )}
+          <ul className="divide-y rounded-xl border" data-testid="history-list">
+            {(historyQ.isError ? [] : (historyQ.data ?? [])).map((h) => (
+              <li key={h.id} className="flex items-center gap-3 p-3 text-sm" data-testid={`history-entry-${h.id}`}>
+                <span
+                  className={cn(
+                    "w-16 shrink-0 text-right font-mono font-bold tabular-nums",
+                    h.delta > 0 ? "text-[#1E7E34]" : h.delta < 0 ? "text-destructive" : "text-muted-foreground",
+                  )}
+                >
+                  {h.delta > 0 ? `+${h.delta}` : h.delta}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold">
+                    {KIND_LABELS[h.kind]}
+                    {h.order_number != null && <span className="text-caramel"> · Pedido nº {h.order_number}</span>}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{formatDateTime(h.created_at)}</p>
+                </div>
+                <span className="shrink-0 font-mono text-xs text-muted-foreground">saldo {h.balance}</span>
+              </li>
+            ))}
+          </ul>
         </DialogContent>
       </Dialog>
 

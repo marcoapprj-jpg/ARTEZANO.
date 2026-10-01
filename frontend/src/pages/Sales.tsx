@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Trophy } from "lucide-react";
+import { ChevronLeft, ChevronRight, Trophy, Wallet } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { apiGet } from "@/lib/api";
-import type { SalesReport } from "@/lib/types";
-import { brl } from "@/lib/format";
+import type { Receivables, SalesReport } from "@/lib/types";
+import { brl, formatDateTime } from "@/lib/format";
 
 const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const monthLabel = (ym: string) => `${MONTHS[parseInt(ym.slice(5, 7), 10) - 1]}/${ym.slice(2, 4)}`;
@@ -27,6 +27,8 @@ export default function Sales() {
     queryFn: () => apiGet<SalesReport>(`/reports/sales${month ? `?month=${month}` : ""}`),
   });
   const r = q.isError ? undefined : q.data;
+  const recQ = useQuery({ queryKey: ["receivables"], queryFn: () => apiGet<Receivables>("/reports/receivables") });
+  const rec = recQ.isError ? undefined : recQ.data;
   const current = month ?? r?.month;
   const maxQty = Math.max(1, ...(r?.top_products.map((p) => p.quantity) ?? [1]));
 
@@ -61,6 +63,36 @@ export default function Sales() {
           <p className="text-xs font-semibold uppercase tracking-wider text-[#8C6F5E]">Pedidos no mês</p>
           <p className="mt-1 font-mono text-4xl font-bold tabular-nums text-caramel" data-testid="sales-month-orders">{r?.month_orders ?? 0}</p>
         </div>
+      </div>
+
+      <div className={card} data-testid="receivables-card">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-lg font-bold">
+            <Wallet className="size-5 text-honey" /> A receber por cliente
+          </h2>
+          <div className="text-right">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#8C6F5E]">Total em aberto · {rec?.orders ?? 0} pedido(s)</p>
+            <p className="font-mono text-2xl font-bold tabular-nums text-destructive" data-testid="receivables-total">{brl(rec?.total ?? 0)}</p>
+          </div>
+        </div>
+        {recQ.isError && <p className="text-sm text-destructive" data-testid="receivables-error">Não foi possível carregar.</p>}
+        {!recQ.isLoading && !recQ.isError && (rec?.customers.length ?? 0) === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground" data-testid="receivables-empty">Nenhum valor em aberto. Tudo quitado!</p>
+        ) : (
+          <ul className="divide-y rounded-xl border" data-testid="receivables-list">
+            {rec?.customers.map((c, idx) => (
+              <li key={c.name} className="flex items-center gap-3 p-3" data-testid={`receivable-${idx}`}>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold">{c.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {c.orders} pedido(s) pendente(s) · mais antigo em {formatDateTime(c.oldest_order_at)}
+                  </p>
+                </div>
+                <span className="shrink-0 font-mono font-bold tabular-nums text-caramel" data-testid={`receivable-total-${idx}`}>{brl(c.total)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className={card}>

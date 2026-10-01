@@ -101,7 +101,7 @@ async def create_order(data: OrderInput):
         await db.orders.insert_one(order.model_dump())
     except DuplicateKeyError:
         raise HTTPException(status_code=409, detail=f"O pedido nº {data.number} já existe")
-    moves, warnings = await consume_for_items(data.items)
+    moves, warnings = await consume_for_items(data.items, data.number)
     if moves:
         await db.orders.update_one({"id": order.id}, {"$set": {"stock_moves": moves}})
     return OrderSaved(**order.model_dump(exclude={"stock_moves"}), stock_moves=moves, stock_warnings=warnings)
@@ -124,5 +124,5 @@ async def delete_order(id: str):
     doc = await db.orders.find_one_and_delete({"id": id}, projection={"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
-    await restore_moves(doc.get("stock_moves", []))
+    await restore_moves(doc.get("stock_moves", []), doc["number"])
     return {"ok": True}

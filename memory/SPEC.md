@@ -37,3 +37,7 @@ GET/POST /products, PUT/DELETE /products/{id}; GET /orders, GET /orders/next-num
 ## Seed
 `cd backend && python seed.py` — 7 products (5 cliente final, 2 with "Revenda" in name) if catalog empty.
 No auth.
+- Stock log: collection stock_log {id, packaging_id, packaging_name, delta, kind: inicial|entrada|ajuste|pedido|devolucao, balance, order_number, created_at};
+  GET /packaging/{id}/history. "Histórico" button per packaging card in /estoque.
+- Receivables: GET /reports/receivables → {total, orders, customers:[{name, orders, total, oldest_order_at}]} (unpaid orders grouped by customer); shown in /vendas "A receber por cliente".
+- Paid orders: WhatsApp text adds "✅ *PAGO*" line; PDF shows a green "PAGO" stamp.

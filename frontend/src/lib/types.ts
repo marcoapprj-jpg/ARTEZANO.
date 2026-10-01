@@ -62,6 +62,32 @@ export interface Packaging extends PackagingInput {
   created_at: string;
 }
 
+export type StockKind = "inicial" | "entrada" | "ajuste" | "pedido" | "devolucao";
+
+export interface StockLogEntry {
+  id: string;
+  packaging_id: string;
+  packaging_name: string;
+  delta: number;
+  kind: StockKind;
+  balance: number;
+  order_number: number | null;
+  created_at: string;
+}
+
+export interface CustomerReceivable {
+  name: string;
+  orders: number;
+  total: number;
+  oldest_order_at: string;
+}
+
+export interface Receivables {
+  total: number;
+  orders: number;
+  customers: CustomerReceivable[];
+}
+
 export interface NextNumber {
   next_number: number;
 }

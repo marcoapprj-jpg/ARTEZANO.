@@ -41,6 +41,7 @@ export function whatsappMessage(o: OrderInput | Order): string {
     `*Entrega:* ${o.delivery || "-"}`,
   ];
   if (o.notes) lines.push(`*Observações:* ${o.notes}`);
+  if ("paid" in o && o.paid) lines.push("", "✅ *PAGO*");
   lines.push("", "_Artezano Pudim — feito com carinho_");
   return lines.join("\n");
 }

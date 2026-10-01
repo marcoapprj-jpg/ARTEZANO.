@@ -31,3 +31,16 @@ class SalesReport(BaseModel):
     days: List[PeriodSales]
     months: List[PeriodSales]
     top_products: List[ProductSales]
+
+
+class CustomerReceivable(BaseModel):
+    name: str
+    orders: int
+    total: float
+    oldest_order_at: str
+
+
+class Receivables(BaseModel):
+    total: float
+    orders: int
+    customers: List[CustomerReceivable]

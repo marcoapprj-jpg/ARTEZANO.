@@ -65,6 +65,7 @@ export default function Orders() {
       setSelected((s) => (s && s.id === o.id ? o : s));
       setUnpayTarget(null);
       qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["receivables"] });
     },
     onError: () => toast.error("Não foi possível atualizar o pagamento"),
   });
@@ -84,6 +85,7 @@ export default function Orders() {
       qc.invalidateQueries({ queryKey: ["next-number"] });
       qc.invalidateQueries({ queryKey: ["customers"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["receivables"] });
       qc.invalidateQueries({ queryKey: ["packaging"] });
     },
     onError: () => toast.error("Não foi possível excluir"),

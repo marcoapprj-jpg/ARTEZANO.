@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, HTTPException
 
 from lib.db import db
-from models.report import Customer, PeriodSales, ProductSales, SalesReport
+from models.report import Customer, PeriodSales, ProductSales, Receivables, CustomerReceivable, SalesReport
 
 router = APIRouter()
 TZ = ZoneInfo("America/Sao_Paulo")
@@ -33,6 +33,26 @@ async def list_customers():
             seen[key] = Customer(name=d["customer_name"].strip(), customer_type=d["customer_type"],
                                  orders_count=1, last_order_at=d["created_at"])
     return list(seen.values())
+
+
+@router.get("/reports/receivables", response_model=Receivables)
+async def receivables():
+    """Unpaid orders grouped by customer (case-insensitive name), biggest balance first."""
+    docs = await db.orders.find(
+        {"paid": {"$ne": True}}, {"_id": 0, "customer_name": 1, "total": 1, "created_at": 1}
+    ).sort("created_at", 1).to_list(20000)
+    groups: dict[str, CustomerReceivable] = {}
+    for d in docs:
+        key = d["customer_name"].strip().lower()
+        g = groups.get(key)
+        if g:
+            g.orders += 1
+            g.total = round(g.total + d["total"], 2)
+        else:
+            groups[key] = CustomerReceivable(name=d["customer_name"].strip(), orders=1,
+                                             total=round(d["total"], 2), oldest_order_at=d["created_at"])
+    customers = sorted(groups.values(), key=lambda c: -c.total)
+    return Receivables(total=round(sum(c.total for c in customers), 2), orders=len(docs), customers=customers)
 
 
 @router.get("/reports/sales", response_model=SalesReport)

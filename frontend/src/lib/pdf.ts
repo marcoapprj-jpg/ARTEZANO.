@@ -72,6 +72,15 @@ export function buildOrderPdf(o: Order): File {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
   doc.text(`TOTAL: ${brl(o.total)}`, W - 14, finalY + 12, { align: "right" });
+  if (o.paid) {
+    doc.setDrawColor(30, 126, 52);
+    doc.setTextColor(30, 126, 52);
+    doc.setLineWidth(0.8);
+    doc.roundedRect(14, finalY + 4, 34, 12, 2, 2, "S");
+    doc.setFontSize(16);
+    doc.text("PAGO", 31, finalY + 12.5, { align: "center" });
+    doc.setTextColor(44, 24, 16);
+  }
 
   const blob = doc.output("blob");
   return new File([blob], `pedido-${o.number}-artezano.pdf`, { type: "application/pdf" });

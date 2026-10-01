@@ -1,5 +1,7 @@
 """Packaging stock: each order item consumes the packaging whose name appears in the product name."""
 import unicodedata
+import uuid
+from datetime import datetime, timezone
 from typing import Iterable, List, Optional
 
 from lib.db import db
@@ -21,7 +23,19 @@ def match_packaging(product_name: str, packagings: Iterable[dict]) -> Optional[d
     return best
 
 
-async def consume_for_items(items) -> tuple[list[dict], list[str]]:
+async def log_move(packaging_id: str, name: str, delta: int, kind: str, balance: int,
+                   order_number: Optional[int] = None) -> None:
+    """kind: inicial | entrada | ajuste | pedido | devolucao"""
+    if delta == 0 and kind != "inicial":
+        return
+    await db.stock_log.insert_one({
+        "id": str(uuid.uuid4()), "packaging_id": packaging_id, "packaging_name": name,
+        "delta": delta, "kind": kind, "balance": balance, "order_number": order_number,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+async def consume_for_items(items, order_number: int) -> tuple[list[dict], list[str]]:
     """Deduct stock for order items. Returns (stock_moves, warnings)."""
     packagings = await db.packaging.find({}, {"_id": 0}).to_list(1000)
     totals: dict[str, dict] = {}
@@ -36,13 +50,21 @@ async def consume_for_items(items) -> tuple[list[dict], list[str]]:
             {"id": m["packaging_id"]}, {"$inc": {"quantity": -m["quantity"]}},
             projection={"_id": 0}, return_document=True,
         )
-        if doc and doc["quantity"] < 0:
+        if not doc:
+            continue
+        await log_move(doc["id"], doc["name"], -m["quantity"], "pedido", doc["quantity"], order_number)
+        if doc["quantity"] < 0:
             warnings.append(f"Estoque de {doc['name']} ficou negativo ({doc['quantity']})")
-        elif doc and doc["quantity"] <= doc.get("min_quantity", 0):
+        elif doc["quantity"] <= doc.get("min_quantity", 0):
             warnings.append(f"Estoque de {doc['name']} baixo ({doc['quantity']})")
     return list(totals.values()), warnings
 
 
-async def restore_moves(moves: list[dict]) -> None:
+async def restore_moves(moves: list[dict], order_number: int) -> None:
     for m in moves:
-        await db.packaging.update_one({"id": m["packaging_id"]}, {"$inc": {"quantity": m["quantity"]}})
+        doc = await db.packaging.find_one_and_update(
+            {"id": m["packaging_id"]}, {"$inc": {"quantity": m["quantity"]}},
+            projection={"_id": 0}, return_document=True,
+        )
+        if doc:
+            await log_move(doc["id"], doc["name"], m["quantity"], "devolucao", doc["quantity"], order_number)
