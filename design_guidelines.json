@@ -1,0 +1,216 @@
+{
+  "project_name": "Artezano Pudim - Lançador de Pedidos",
+  "app_archetype": "Organic & Artisanal Patisserie / Operations Command",
+  "theme": "Light theme warm artisanal bakery (cream #FBF7F2, caramel #B85D19, rich espresso #2C1810, gold honey #D9822B, fresh sage #4E6E58)",
+  "logo_url": "https://customer-assets-rejwkqb3.emergentagent.net/job_202eaa27-2559-4f85-84a3-a8fa5350395f/artifacts/c300woox_ICON.png",
+  "entry_surfaces": {
+    "/": "artisanal order cockpit — quick stats header, order type mode toggle + next order # pill left, active item builder and order form center-right, recent orders drawer",
+    "/orders": "order history table & export deck — multi-filter toolbar, date range selector, Excel export trigger, order cards with WhatsApp PDF & text actions",
+    "/catalog": "product catalog management grid — SKU/name/price inline editor, category pill tags (Revenda vs Cliente Final), new dessert quick-add dialog"
+  },
+  "typography": {
+    "font_family_heading": "Plus Jakarta Sans, sans-serif",
+    "font_family_body": "DM Sans, sans-serif",
+    "font_family_mono": "JetBrains Mono, monospace",
+    "imports": [
+      "@import \"@fontsource-variable/plus-jakarta-sans\";",
+      "@import \"@fontsource-variable/dm-sans\";",
+      "@import \"@fontsource-variable/jetbrains-mono\";"
+    ],
+    "scale_px": {
+      "display": 52,
+      "h1": 38,
+      "h2": 28,
+      "h3": 22,
+      "body": 16,
+      "caption": 14
+    },
+    "rules": {
+      "headings": "font-bold tracking-tight text-[#2C1810]",
+      "subheadings": "font-medium text-[#6B5448]",
+      "labels": "text-xs uppercase tracking-wider font-semibold text-[#8C6F5E]",
+      "numeric_currency": "font-mono font-bold tabular-nums"
+    }
+  },
+  "colors": {
+    "accent": "#B85D19",
+    "on_accent": "#FFFFFF",
+    "surfaces": [
+      {
+        "name": "page",
+        "kind": "solid",
+        "bg": "#FBF7F2",
+        "on_bg": "#2C1810",
+        "on_bg_muted": "#6E5A4E",
+        "roles": {
+          "primary_action": "#B85D19",
+          "whatsapp_green": "#25D366",
+          "success": "#1E7E34",
+          "error": "#C53030",
+          "border": "#EADCCF"
+        }
+      },
+      {
+        "name": "panel",
+        "kind": "solid",
+        "bg": "#FFFFFF",
+        "on_bg": "#2C1810",
+        "on_bg_muted": "#6E5A4E",
+        "roles": {
+          "card_border": "#F0E4D8",
+          "input_bg": "#FAF6F0",
+          "input_border": "#E2D3C4"
+        }
+      },
+      {
+        "name": "brand_header",
+        "kind": "solid",
+        "bg": "#3D2314",
+        "on_bg": "#FDF8F3",
+        "on_bg_muted": "#D6C4B8",
+        "roles": {
+          "badge_bg": "#B85D19",
+          "badge_text": "#FFFFFF",
+          "nav_active": "#EFA259"
+        }
+      },
+      {
+        "name": "tag_revenda",
+        "kind": "solid",
+        "bg": "#EDE3DA",
+        "on_bg": "#4A2B19",
+        "on_bg_muted": "#6B4934"
+      },
+      {
+        "name": "tag_cliente_final",
+        "kind": "solid",
+        "bg": "#E8F0EC",
+        "on_bg": "#1C4E33",
+        "on_bg_muted": "#35684E"
+      },
+      {
+        "name": "whatsapp_card",
+        "kind": "solid",
+        "bg": "#E9F8EE",
+        "on_bg": "#0D5224",
+        "on_bg_muted": "#236B3B"
+      }
+    ]
+  },
+  "image_urls": [
+    {
+      "category": "brand_logo",
+      "url": "https://customer-assets-rejwkqb3.emergentagent.net/job_202eaa27-2559-4f85-84a3-a8fa5350395f/artifacts/c300woox_ICON.png",
+      "description": "Logotipo oficial circular Artezano Pudim - Feito com Carinho",
+      "target_component": "Header, PDF Header, Printout, Order Cards"
+    },
+    {
+      "category": "product_hero_pudim",
+      "url": "https://images.unsplash.com/photo-1702728109878-c61a98d80491?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwxfHxjYXJhbWVsJTIwZmxhbiUyMGRlc3NlcnR8ZW58MHx8fHwxNzkwODIzMDk0fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Pudim artesanal dourado com calda de caramelo brilhante em prato elegante",
+      "target_component": "Order Launcher item preview, catalog hero"
+    },
+    {
+      "category": "product_individual_flan",
+      "url": "https://images.unsplash.com/photo-1653988354010-39637252a2db?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwzfHxjYXJhbWVsJTIwZmxhbiUyMGRlc3NlcnR8ZW58MHx8fHwxNzkwODIzMDk0fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Pudim individual clássico com farta calda de caramelo",
+      "target_component": "Catalog and item picker cards"
+    },
+    {
+      "category": "product_specialty_cherry",
+      "url": "https://images.unsplash.com/photo-1752245055475-8b7c3b4756ac?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHw0fHxjYXJhbWVsJTIwZmxhbiUyMGRlc3NlcnR8ZW58MHx8fHwxNzkwODIzMDk0fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Sobremesa cremosa com acabamento artesanal",
+      "target_component": "Catalog items"
+    }
+  ],
+  "layout_and_ux_rules": {
+    "viewport": "Mobile-first responsive (390px phone to 1440px desktop). Order taker is frequently used on mobile phones and tablets in the kitchen/store.",
+    "locale_conventions": {
+      "language": "pt-BR",
+      "currency_format": "BRL (R$ 1.250,00)",
+      "date_format": "DD/MM/YYYY",
+      "number_format": "1.000,00"
+    },
+    "key_workflows": [
+      {
+        "flow": "Lançamento Rápido de Pedido (Order Launcher)",
+        "details": [
+          "Campo 'PEDIDO Nº' com auto-sugestão do próximo número disponível (ex: se o último foi #1042, sugere #1043 automaticamente ao abrir a tela ou após cadastrar). Permite ajuste manual.",
+          "Campo 'NOME DO CLIENTE' obrigatório.",
+          "Seleção do tipo de cliente: Toggle/Tabs 'Cliente Final' vs 'Revenda'.",
+          "Regra estrita de filtro de itens: Se 'Revenda' -> exibir SOMENTE produtos que contenham 'revenda' no nome ou marcados como revenda. Se 'Cliente Final' -> exibir TODOS os produtos cadastrados EXCLUINDO os de revenda.",
+          "Botão 'Selecionar Itens' abre um Sheet/Modal interativo com lista de produtos, foto miniatura, preço, SKU e contador (+ / - / input de quantidade).",
+          "CRITICAL UX: Ao escolher ou alterar quantidade de um item, o Sheet/Modal NÃO fecha. Ele só fecha quando o usuário clicar no botão 'Concluir Seleção (X itens)'.",
+          "Resumo dos itens selecionados aparece na tela principal com totalizador em tempo real, permitindo remoção rápida ou ajuste.",
+          "Forma de Pagamento em Chips rápidos: Pix, Dinheiro, Cartão de Crédito, Cartão de Débito, Boleto + campo livre para observações.",
+          "Prazo para Pagamento em Chips rápidos: À Vista, 7 Dias, 14 Dias, 28 Dias + campo de data personalizada.",
+          "Data de Entrega / Retirada com date picker e horário.",
+          "Botão Primário: 'Finalizar e Enviar no WhatsApp' (destaque verde/caramelo) -> formata mensagem com ITENS EM NEGRITO (*Item x Qtd - R$ Total*), cliente, nº do pedido, pagamento, prazo e entrega, abrindo 'https://wa.me/?text=...' para escolha do contato.",
+          "Ao salvar o pedido, volta para a tela inicial limpa com o PEDIDO Nº JÁ INCREMENTADO para o próximo."
+        ]
+      },
+      {
+        "flow": "Histórico e Exportação (Order History & Excel)",
+        "details": [
+          "Lista de pedidos com busca rápida por Nome, Nº do Pedido ou Status.",
+          "Filtros por Tipo (Revenda / Cliente Final) e Período de Entrega.",
+          "Botão destacado 'Exportar para Excel (.xlsx)' gerando planilha completa com todas as colunas (Nº Pedido, Data, Cliente, Tipo, Itens Detalhados, Total, Pagamento, Prazo, Status).",
+          "Em cada card de pedido ou linha da tabela: Botão 'Reenviar WhatsApp' e Botão 'Gerar e Compartilhar PDF do Pedido' (usa navigator.share se disponível com fallback para download direto)."
+        ]
+      },
+      {
+        "flow": "Catálogo de Produtos (CRUD e Edição Fácil)",
+        "details": [
+          "Cadastro de produto: Nome, SKU, Preço de Venda, Tipo (Revenda ou Cliente Final), Descrição e Foto opcional.",
+          "Edição rápida inline ou via modal: permite alterar Nome, Preço e SKU sem precisar excluir o produto.",
+          "Produtos pré-cadastrados clássicos de Pudim (Pudim Tradicional Leite Condensado 1kg, Pudim Individual 120g, Pudim Especial Pistache, Pudim Doce de Leite, Pudim Chocolate Belga, Kit Degustação, Pudim Revenda Pote 120g Cx c/ 12, Pudim Revenda Grande 1kg Cx c/ 4)."
+        ]
+      }
+    ],
+    "whatsapp_message_format": {
+      "template": "🍮 *ARTEZANO PUDIM - PEDIDO Nº {{numero}}*\n\n👤 *Cliente:* {{nome}}\n🏷️ *Tipo:* {{tipo}}\n\n📋 *ITENS DO PEDIDO:*\n{{#itens}}\n• *{{quantidade}}x {{nome_produto}}* - {{preco_total}}\n{{/itens}}\n\n💰 *VALOR TOTAL:* *{{valor_total}}*\n💳 *Forma de Pagamento:* {{forma_pagamento}}\n⏳ *Prazo de Pagamento:* {{prazo_pagamento}}\n🚚 *Data de Entrega/Retirada:* {{data_entrega}}\n\n📝 *Observações:* {{observacoes}}\n\n_Agradecemos a preferência! Feito com carinho._"
+    }
+  },
+  "testing_attributes": {
+    "launcher": {
+      "order_number_input": "input-order-number",
+      "customer_name_input": "input-customer-name",
+      "type_toggle_final": "toggle-type-cliente-final",
+      "type_toggle_revenda": "toggle-type-revenda",
+      "open_item_picker_btn": "btn-open-item-picker",
+      "item_picker_sheet": "sheet-item-picker",
+      "item_quantity_inc": "btn-item-inc-{{id}}",
+      "item_quantity_dec": "btn-item-dec-{{id}}",
+      "item_picker_done_btn": "btn-item-picker-done",
+      "payment_method_chip": "chip-payment-{{method}}",
+      "payment_term_chip": "chip-term-{{term}}",
+      "delivery_date_input": "input-delivery-date",
+      "submit_whatsapp_btn": "btn-submit-order-whatsapp",
+      "submit_save_only_btn": "btn-submit-order-save"
+    },
+    "history": {
+      "search_input": "input-history-search",
+      "export_excel_btn": "btn-export-excel",
+      "order_card": "card-order-{{order_id}}",
+      "btn_whatsapp_text": "btn-resend-whatsapp-{{order_id}}",
+      "btn_whatsapp_pdf": "btn-send-pdf-{{order_id}}"
+    },
+    "catalog": {
+      "add_product_btn": "btn-add-product",
+      "edit_product_btn": "btn-edit-product-{{id}}",
+      "product_item_card": "card-product-{{id}}"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Mount the top navbar with the official Artezano logo (https://customer-assets-rejwkqb3.emergentagent.net/job_202eaa27-2559-4f85-84a3-a8fa5350395f/artifacts/c300woox_ICON.png) with warm patisserie styling.",
+    "Implement the multi-user concurrent order taking capability backed by FastAPI + MongoDB (backend already includes motor, openpyxl, pandas).",
+    "Auto-calculate next order number from MongoDB (highest existing number + 1), but let the user override if needed. When returning to the new order screen after submission, populate with next order number.",
+    "For WhatsApp sending, format message properly using encodeURIComponent and window.open(`https://wa.me/?text=${encodedText}`, '_blank'). Make sure items are enclosed in asterisks (*) for WhatsApp bold text.",
+    "For PDF generation, use html2pdf.js / jspdf or an HTML print template styled with the Artezano badge and layout. Use Web Share API (navigator.share) when files are supported on mobile, with automatic direct download fallback on desktop.",
+    "For Excel export, provide a backend endpoint `/api/orders/export` using openpyxl / pandas returning a formatted .xlsx spreadsheet, with a direct frontend download trigger button.",
+    "Ensure the Item Picker Sheet does NOT close after each item tap; keep it open until the user clicks 'Concluir Seleção'.",
+    "Strictly follow the item catalog filtering: 'Revenda' mode shows ONLY items tagged as revenda; 'Cliente Final' shows all items EXCEPT revenda items.",
+    "Seed high quality dessert catalog items (Pudim Leite Condensado, Pudim Pistache, Pudim Doce de Leite, Pudim Nutella, Pudim Maracujá, Pudim Mini 120g Revenda Cx 12, etc.) so the app is instantly usable.",
+    "Include sound/visual feedback on WhatsApp submission and order saving with Sonner toasts."
+  ]
+}
