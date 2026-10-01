@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -26,10 +26,27 @@ class OrderInput(BaseModel):
     notes: str = ""
 
 
+class StockMove(BaseModel):
+    packaging_id: str
+    name: str
+    quantity: int
+
+
 class Order(OrderInput):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     total: float = 0
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    paid: bool = False
+    paid_at: Optional[str] = None
+    stock_moves: List[StockMove] = []
+
+
+class OrderSaved(Order):
+    stock_warnings: List[str] = []
+
+
+class PaidUpdate(BaseModel):
+    paid: bool
 
 
 class NextNumber(BaseModel):

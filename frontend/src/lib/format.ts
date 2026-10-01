@@ -47,6 +47,20 @@ export function whatsappMessage(o: OrderInput | Order): string {
 
 export const whatsappUrl = (text: string) => `https://wa.me/?text=${encodeURIComponent(text)}`;
 
+const normName = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
+
+/** Same rule as backend/lib/stock.py: longest packaging name contained in the product name. */
+export function matchPackaging<T extends { name: string }>(productName: string, packagings: T[]): T | undefined {
+  const pn = normName(productName);
+  let best: T | undefined;
+  for (const p of packagings) {
+    const key = normName(p.name);
+    if (key && pn.includes(key) && (!best || key.length > normName(best.name).length)) best = p;
+  }
+  return best;
+}
+
 /** Open WhatsApp share (contact chosen in the app). */
 export function openWhatsApp(text: string, preopened?: Window | null) {
   const url = whatsappUrl(text);

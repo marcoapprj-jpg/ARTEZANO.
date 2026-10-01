@@ -14,6 +14,12 @@ Multi-user (no login, shared link) order launcher for a pudim bakery. UI in pt-B
 - "Repetir pedido" in history dialog → prefills Novo pedido (name, type, items at current catalog prices, payment, term) via router state.
 - `/vendas` Vendas: month selector, month total/orders, daily bar chart, last-12-months chart, top 10 products (`GET /api/reports/sales?month=YYYY-MM`, tz America/Sao_Paulo).
 - WhatsApp text and PDF do NOT include SKU (Excel export still does).
+- `/estoque` Embalagens (packaging collection {id,name,quantity,min_quantity}): add/edit/delete, "Entrada" (+qty), low/negative alerts.
+  Each order item deducts its quantity from the packaging whose (accent/case-insensitive) name is contained in the product name
+  (longest match wins, e.g. "FORMA 500" over "FORMA"). Moves stored on order.stock_moves; deleting an order restores them.
+  Saving is never blocked; negative/low stock returns `stock_warnings` (toasts). Endpoints: GET/POST /packaging, PUT/DELETE /packaging/{id}, POST /packaging/{id}/adjust {delta}.
+- Paid flag: order.paid / paid_at, PATCH /orders/{id}/paid {paid}. History has "Quitar" toggle per card + filter Todos/Pendentes/Quitados;
+  unmarking a paid order asks confirmation dialog. Excel has "Quitado" column.
 - `/produtos` Catálogo: create / edit (name, SKU, price) / delete.
 
 ## Rules

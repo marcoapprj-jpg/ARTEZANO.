@@ -31,9 +31,34 @@ export interface OrderInput {
   notes: string;
 }
 
+export interface StockMove {
+  packaging_id: string;
+  name: string;
+  quantity: number;
+}
+
 export interface Order extends OrderInput {
   id: string;
   total: number;
+  created_at: string;
+  paid: boolean;
+  paid_at: string | null;
+  stock_moves: StockMove[];
+}
+
+export interface OrderSaved extends Order {
+  stock_warnings: string[];
+}
+
+// Mirrors backend/models/packaging.py
+export interface PackagingInput {
+  name: string;
+  quantity: number;
+  min_quantity: number;
+}
+
+export interface Packaging extends PackagingInput {
+  id: string;
   created_at: string;
 }
 

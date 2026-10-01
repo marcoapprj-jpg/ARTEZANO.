@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
-import type { Product, ProductInput } from "@/lib/types";
-import { brl, isRevenda } from "@/lib/format";
+import type { Packaging, Product, ProductInput } from "@/lib/types";
+import { brl, isRevenda, matchPackaging } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface FormState {
@@ -22,6 +22,8 @@ const EMPTY: FormState = { name: "", sku: "", price: "" };
 export default function Catalog() {
   const qc = useQueryClient();
   const productsQ = useQuery({ queryKey: ["products"], queryFn: () => apiGet<Product[]>("/products") });
+  const packagingQ = useQuery({ queryKey: ["packaging"], queryFn: () => apiGet<Packaging[]>("/packaging") });
+  const packaging = packagingQ.isError ? [] : (packagingQ.data ?? []);
   const [editing, setEditing] = useState<Product | null>(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
@@ -112,6 +114,9 @@ export default function Catalog() {
                   </Badge>
                   <p className="font-mono text-xs text-muted-foreground" data-testid={`product-sku-${p.id}`}>
                     SKU: {p.sku || "—"}
+                  </p>
+                  <p className="text-xs text-muted-foreground" data-testid={`product-packaging-${p.id}`}>
+                    Embalagem: <strong className="text-espresso">{matchPackaging(p.name, packaging)?.name ?? "nenhuma"}</strong>
                   </p>
                 </div>
                 <p className="font-mono text-xl font-bold tabular-nums text-caramel" data-testid={`product-price-${p.id}`}>

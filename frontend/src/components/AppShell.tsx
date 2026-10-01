@@ -1,12 +1,13 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { BarChart3, ClipboardList, History, Package } from "lucide-react";
+import { BarChart3, Boxes, ClipboardList, History, Package } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { to: "/", label: "Novo pedido", icon: ClipboardList, id: "nav-new-order" },
+  { to: "/", label: "Pedido", icon: ClipboardList, id: "nav-new-order" },
   { to: "/pedidos", label: "Histórico", icon: History, id: "nav-history" },
   { to: "/vendas", label: "Vendas", icon: BarChart3, id: "nav-sales" },
+  { to: "/estoque", label: "Estoque", icon: Boxes, id: "nav-stock" },
   { to: "/produtos", label: "Produtos", icon: Package, id: "nav-products" },
 ];
 

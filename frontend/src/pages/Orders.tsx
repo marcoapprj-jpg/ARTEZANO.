@@ -2,12 +2,12 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Copy, FileDown, FileSpreadsheet, MessageCircle, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, Copy, FileDown, FileSpreadsheet, MessageCircle, Search, Trash2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { apiDelete, apiGet } from "@/lib/api";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { apiDelete, apiGet, apiPatch } from "@/lib/api";
 import type { Order, OrderItem, Product, RepeatOrderState } from "@/lib/types";
 import { brl, formatDateTime, openWhatsApp, TYPE_LABELS, whatsappMessage } from "@/lib/format";
 import { shareOrderPdf } from "@/lib/pdf";
@@ -45,21 +45,46 @@ export default function Orders() {
     toast.success(`Pedido nº ${o.number} copiado — confira e salve`);
   };
 
+  const [paidFilter, setPaidFilter] = useState<"all" | "open" | "paid">("all");
+  const [unpayTarget, setUnpayTarget] = useState<Order | null>(null);
+
   const list = useMemo(() => {
     const q = search.trim().toLowerCase();
     const all = ordersQ.isError ? [] : (ordersQ.data ?? []);
-    return all.filter((o) => !q || o.customer_name.toLowerCase().includes(q) || String(o.number).includes(q));
-  }, [ordersQ.data, ordersQ.isError, search]);
+    return all.filter(
+      (o) =>
+        (!q || o.customer_name.toLowerCase().includes(q) || String(o.number).includes(q)) &&
+        (paidFilter === "all" || (paidFilter === "paid" ? o.paid : !o.paid)),
+    );
+  }, [ordersQ.data, ordersQ.isError, search, paidFilter]);
+
+  const paidM = useMutation({
+    mutationFn: ({ id, paid }: { id: string; paid: boolean }) => apiPatch<Order>(`/orders/${id}/paid`, { paid }),
+    onSuccess: (o) => {
+      toast.success(o.paid ? `Pedido nº ${o.number} marcado como quitado` : `Pedido nº ${o.number} voltou para pendente`);
+      setSelected((s) => (s && s.id === o.id ? o : s));
+      setUnpayTarget(null);
+      qc.invalidateQueries({ queryKey: ["orders"] });
+    },
+    onError: () => toast.error("Não foi possível atualizar o pagamento"),
+  });
+
+  // Marking paid is immediate; unmarking a paid order asks for confirmation.
+  const togglePaid = (o: Order) => {
+    if (o.paid) setUnpayTarget(o);
+    else paidM.mutate({ id: o.id, paid: true });
+  };
 
   const del = useMutation({
     mutationFn: (id: string) => apiDelete<{ ok: boolean }>(`/orders/${id}`),
     onSuccess: () => {
-      toast.success("Pedido excluído");
+      toast.success("Pedido excluído — embalagens devolvidas ao estoque");
       setSelected(null);
       qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["next-number"] });
       qc.invalidateQueries({ queryKey: ["customers"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["packaging"] });
     },
     onError: () => toast.error("Não foi possível excluir"),
   });
@@ -94,15 +119,37 @@ export default function Orders() {
         </a>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por cliente ou nº do pedido"
-          className="h-11 bg-card pl-9"
-          data-testid="input-history-search"
-        />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative w-full max-w-md">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por cliente ou nº do pedido"
+            className="h-11 bg-card pl-9"
+            data-testid="input-history-search"
+          />
+        </div>
+        <div className="flex rounded-full bg-[#F3E9DF] p-1">
+          {([
+            ["all", "Todos"],
+            ["open", "Pendentes"],
+            ["paid", "Quitados"],
+          ] as const).map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setPaidFilter(k)}
+              data-testid={`filter-paid-${k}`}
+              className={cn(
+                "rounded-full px-4 py-1.5 text-sm font-semibold transition-[background-color,color] duration-200",
+                paidFilter === k ? "bg-cocoa text-white shadow" : "text-[#6B4934]",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {ordersQ.isLoading && <p className="text-muted-foreground" data-testid="history-loading">Carregando…</p>}
@@ -115,11 +162,18 @@ export default function Orders() {
 
       <ul className="grid gap-3 md:grid-cols-2" data-testid="history-list">
         {list.map((o, idx) => (
-          <li key={o.id} style={{ animationDelay: `${Math.min(idx, 10) * 30}ms` }} className="animate-rise">
+          <li
+            key={o.id}
+            style={{ animationDelay: `${Math.min(idx, 10) * 30}ms` }}
+            className={cn(
+              "flex items-stretch overflow-hidden rounded-2xl border bg-card shadow-[0_8px_24px_-18px_rgba(61,35,20,0.4)] transition-[transform,box-shadow,border-color] duration-200 animate-rise hover:-translate-y-0.5 hover:shadow-lg",
+              o.paid ? "border-[#BFE0C8]" : "border-[#F0E4D8] hover:border-caramel/40",
+            )}
+          >
             <button
               type="button"
               onClick={() => setSelected(o)}
-              className="flex w-full items-center gap-4 rounded-2xl border border-[#F0E4D8] bg-card p-4 text-left shadow-[0_8px_24px_-18px_rgba(61,35,20,0.4)] transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-caramel/40 hover:shadow-lg"
+              className="flex min-w-0 flex-1 items-center gap-4 p-4 text-left"
               data-testid={`card-order-${o.id}`}
             >
               <div className="flex size-14 shrink-0 flex-col items-center justify-center rounded-xl bg-cocoa text-[#FDF8F3]">
@@ -127,7 +181,7 @@ export default function Orders() {
                 <span className="font-mono text-lg font-bold leading-none">{o.number}</span>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold">{o.customer_name}</p>
+                <p className="line-clamp-2 font-semibold break-words">{o.customer_name}</p>
                 <p className="text-xs text-muted-foreground">
                   {formatDateTime(o.created_at)} · {o.items.reduce((s, i) => s + i.quantity, 0)} un.
                 </p>
@@ -142,9 +196,58 @@ export default function Orders() {
               </div>
               <span className="font-mono font-bold tabular-nums text-caramel">{brl(o.total)}</span>
             </button>
+            <button
+              type="button"
+              onClick={() => togglePaid(o)}
+              disabled={paidM.isPending}
+              data-testid={`btn-toggle-paid-${o.id}`}
+              data-paid={o.paid}
+              aria-label={o.paid ? "Quitado" : "Marcar como quitado"}
+              className={cn(
+                "flex w-20 shrink-0 flex-col items-center justify-center gap-1 border-l text-[11px] font-semibold transition-[background-color,color] duration-200",
+                o.paid ? "bg-[#E9F8EE] text-[#1E7E34]" : "text-[#8C6F5E] hover:bg-[#FFF7EE]",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex size-7 items-center justify-center rounded-full border-2 transition-[background-color,border-color] duration-200",
+                  o.paid ? "border-[#1E7E34] bg-[#1E7E34] text-white" : "border-[#D6C4B8]",
+                )}
+              >
+                {o.paid && <Check className="size-4 animate-pop" />}
+              </span>
+              {o.paid ? "Quitado" : "Quitar"}
+            </button>
           </li>
         ))}
       </ul>
+
+      <Dialog open={!!unpayTarget} onOpenChange={(v) => !v && setUnpayTarget(null)}>
+        <DialogContent className="sm:max-w-sm" data-testid="unpay-confirm-dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-heading text-xl">
+              <AlertTriangle className="size-5 text-honey" /> Tem certeza?
+            </DialogTitle>
+            <DialogDescription>
+              O pedido nº {unpayTarget?.number} ({unpayTarget?.customer_name}) está marcado como <strong>quitado</strong>.
+              Deseja realmente desmarcar e voltar para pendente?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setUnpayTarget(null)} data-testid="btn-unpay-cancel">
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={paidM.isPending}
+              onClick={() => unpayTarget && paidM.mutate({ id: unpayTarget.id, paid: false })}
+              data-testid="btn-unpay-confirm"
+            >
+              Sim, desmarcar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!selected} onOpenChange={(v) => !v && setSelected(null)}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg" data-testid="order-detail-dialog">
@@ -154,7 +257,12 @@ export default function Orders() {
                 <DialogTitle className="font-heading text-2xl" data-testid="order-detail-title">
                   Pedido Nº {selected.number}
                 </DialogTitle>
-                <DialogDescription>{formatDateTime(selected.created_at)}</DialogDescription>
+                <DialogDescription>
+                  {formatDateTime(selected.created_at)} ·{" "}
+                  <span className={selected.paid ? "font-semibold text-[#1E7E34]" : "font-semibold text-honey"} data-testid="order-detail-paid">
+                    {selected.paid ? "Quitado" : "Pendente"}
+                  </span>
+                </DialogDescription>
               </DialogHeader>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
                 <dt className="text-muted-foreground">Cliente</dt>
@@ -205,6 +313,15 @@ export default function Orders() {
                   data-testid={`btn-resend-whatsapp-${selected.id}`}
                 >
                   <MessageCircle /> Reenviar texto no WhatsApp
+                </Button>
+                <Button
+                  variant="outline"
+                  className={cn("h-11 rounded-xl", selected.paid && "border-[#1E7E34]/40 text-[#1E7E34] hover:text-[#1E7E34]")}
+                  disabled={paidM.isPending}
+                  onClick={() => togglePaid(selected)}
+                  data-testid={`btn-detail-toggle-paid-${selected.id}`}
+                >
+                  <Check /> {selected.paid ? "Quitado (toque para desmarcar)" : "Marcar como quitado"}
                 </Button>
                 <Button
                   variant="outline"

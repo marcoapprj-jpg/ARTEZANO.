@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import ItemPicker from "@/components/ItemPicker";
 import ChipGroup from "@/components/ChipGroup";
 import { ApiError, apiGet, apiPost } from "@/lib/api";
-import type { Customer, CustomerType, NextNumber, Order, OrderInput, OrderItem, Product, RepeatOrderState } from "@/lib/types";
+import type { Customer, CustomerType, NextNumber, OrderInput, OrderItem, OrderSaved, Product, RepeatOrderState } from "@/lib/types";
 import { brl, openWhatsApp, orderTotal, TYPE_LABELS, whatsappMessage } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -74,7 +74,7 @@ export default function NewOrder() {
   };
 
   const save = useMutation({
-    mutationFn: (body: OrderInput) => apiPost<Order>("/orders", body),
+    mutationFn: (body: OrderInput) => apiPost<OrderSaved>("/orders", body),
   });
 
   const submit = async (sendWhats: boolean) => {
@@ -98,7 +98,9 @@ export default function NewOrder() {
       const order = await save.mutateAsync(body);
       if (sendWhats) openWhatsApp(whatsappMessage(order), pre);
       toast.success(`Pedido nº ${order.number} salvo!`);
+      order.stock_warnings.forEach((w) => toast.warning(w, { duration: 8000 }));
       reset();
+      qc.invalidateQueries({ queryKey: ["packaging"] });
       qc.invalidateQueries({ queryKey: ["next-number"] });
       qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["customers"] });
