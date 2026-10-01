@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Trophy, Wallet } from "lucide-react";
+import { ChevronLeft, ChevronRight, MessageCircle, Trophy, Wallet } from "lucide-react";
+import { toast } from "sonner";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { apiGet } from "@/lib/api";
-import type { Receivables, SalesReport } from "@/lib/types";
-import { brl, formatDateTime } from "@/lib/format";
+import type { Order, Receivables, SalesReport } from "@/lib/types";
+import { brl, customerStatement, formatDateTime, openWhatsApp } from "@/lib/format";
 
 const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const monthLabel = (ym: string) => `${MONTHS[parseInt(ym.slice(5, 7), 10) - 1]}/${ym.slice(2, 4)}`;
@@ -29,6 +30,14 @@ export default function Sales() {
   const r = q.isError ? undefined : q.data;
   const recQ = useQuery({ queryKey: ["receivables"], queryFn: () => apiGet<Receivables>("/reports/receivables") });
   const rec = recQ.isError ? undefined : recQ.data;
+  const ordersQ = useQuery({ queryKey: ["orders"], queryFn: () => apiGet<Order[]>("/orders") });
+
+  const sendStatement = (name: string) => {
+    const key = name.trim().toLowerCase();
+    const open = (ordersQ.data ?? []).filter((o) => !o.paid && o.customer_name.trim().toLowerCase() === key);
+    if (open.length === 0) return toast.error("Pedidos ainda carregando — tente novamente");
+    openWhatsApp(customerStatement(name, open));
+  };
   const current = month ?? r?.month;
   const maxQty = Math.max(1, ...(r?.top_products.map((p) => p.quantity) ?? [1]));
 
@@ -81,7 +90,7 @@ export default function Sales() {
         ) : (
           <ul className="divide-y rounded-xl border" data-testid="receivables-list">
             {rec?.customers.map((c, idx) => (
-              <li key={c.name} className="flex items-center gap-3 p-3" data-testid={`receivable-${idx}`}>
+              <li key={c.name} className="flex flex-wrap items-center gap-3 p-3" data-testid={`receivable-${idx}`}>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold">{c.name}</p>
                   <p className="text-xs text-muted-foreground">
@@ -89,6 +98,14 @@ export default function Sales() {
                   </p>
                 </div>
                 <span className="shrink-0 font-mono font-bold tabular-nums text-caramel" data-testid={`receivable-total-${idx}`}>{brl(c.total)}</span>
+                <Button
+                  size="sm"
+                  className="shrink-0 rounded-full bg-whats text-[#0D3B1E] hover:bg-whats/90"
+                  onClick={() => sendStatement(c.name)}
+                  data-testid={`btn-send-statement-${idx}`}
+                >
+                  <MessageCircle /> Enviar extrato
+                </Button>
               </li>
             ))}
           </ul>

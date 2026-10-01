@@ -48,6 +48,26 @@ export function whatsappMessage(o: OrderInput | Order): string {
 
 export const whatsappUrl = (text: string) => `https://wa.me/?text=${encodeURIComponent(text)}`;
 
+/** Statement of a customer's unpaid orders, items in bold. */
+export function customerStatement(name: string, orders: Order[]): string {
+  const total = orders.reduce((s, o) => s + o.total, 0);
+  const lines: string[] = [
+    "🍮 *ARTEZANO PUDIM*",
+    "*EXTRATO DE PEDIDOS EM ABERTO*",
+    "",
+    `*Cliente:* ${name}`,
+    "",
+  ];
+  for (const o of [...orders].sort((a, b) => a.number - b.number)) {
+    lines.push(`*Pedido Nº ${o.number}* — ${new Date(o.created_at).toLocaleDateString("pt-BR")} — *${brl(o.total)}*`);
+    for (const i of o.items) lines.push(`  • *${i.quantity}x ${i.name}*`);
+    if (o.payment_term) lines.push(`  _Prazo: ${o.payment_term}_`);
+    lines.push("");
+  }
+  lines.push(`*TOTAL EM ABERTO: ${brl(total)}*`, `(${orders.length} pedido(s))`, "", "_Artezano Pudim — feito com carinho_");
+  return lines.join("\n");
+}
+
 const normName = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
 

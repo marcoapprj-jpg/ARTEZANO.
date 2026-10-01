@@ -74,6 +74,27 @@ async def export_orders():
                           (ws2, [11, 17, 28, 14, 14, 36, 11, 15, 14])):
         for idx, w in enumerate(widths):
             sheet.column_dimensions[chr(65 + idx)].width = w
+
+    # Packaging: current stock + full movement log.
+    kind_labels = {"inicial": "Estoque inicial", "entrada": "Entrada", "ajuste": "Ajuste manual",
+                   "pedido": "Baixa por pedido", "devolucao": "Devolução (pedido excluído)"}
+    packs = await db.packaging.find({}, {"_id": 0}).sort("name", 1).to_list(1000)
+    ws3 = wb.create_sheet("Estoque Embalagens")
+    ws3.append(["Embalagem", "Quantidade", "Estoque Mínimo", "Situação"])
+    for p in packs:
+        q, mn = p["quantity"], p.get("min_quantity", 0)
+        ws3.append([p["name"], q, mn, "Sem estoque" if q <= 0 else "Baixo" if q <= mn else "OK"])
+    logs = await db.stock_log.find({}, {"_id": 0}).sort("created_at", -1).to_list(50000)
+    ws4 = wb.create_sheet("Movimentações Estoque")
+    ws4.append(["Data", "Embalagem", "Tipo", "Quantidade", "Saldo", "Pedido Nº"])
+    for lg in logs:
+        ws4.append([_local(lg["created_at"]), lg["packaging_name"], kind_labels.get(lg["kind"], lg["kind"]),
+                    lg["delta"], lg["balance"], lg.get("order_number")])
+    for sheet, widths in ((ws3, [24, 12, 15, 13]), (ws4, [17, 24, 28, 12, 10, 11])):
+        for c in sheet[1]:
+            c.font, c.fill = head_font, head_fill
+        for idx, w in enumerate(widths):
+            sheet.column_dimensions[chr(65 + idx)].width = w
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)

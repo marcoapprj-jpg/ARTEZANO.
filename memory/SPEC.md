@@ -41,3 +41,6 @@ No auth.
   GET /packaging/{id}/history. "Histórico" button per packaging card in /estoque.
 - Receivables: GET /reports/receivables → {total, orders, customers:[{name, orders, total, oldest_order_at}]} (unpaid orders grouped by customer); shown in /vendas "A receber por cliente".
 - Paid orders: WhatsApp text adds "✅ *PAGO*" line; PDF shows a green "PAGO" stamp.
+- Customer statement: /vendas receivables rows have "Enviar extrato" → WhatsApp text with all unpaid orders of that customer (items bold) + total due.
+- Order screen stock alert: projected packaging after selected items; shows panel when remaining <= min (red if negative). Not blocking.
+- Excel export (/api/orders/export) also has sheets "Estoque Embalagens" (current stock) and "Movimentações Estoque" (stock_log).

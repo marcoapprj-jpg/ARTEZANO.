@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ListPlus, Minus, Plus, Save, Send, Trash2, UserRound } from "lucide-react";
+import { AlertTriangle, ListPlus, Minus, Plus, Save, Send, Trash2, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,8 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import ItemPicker from "@/components/ItemPicker";
 import ChipGroup from "@/components/ChipGroup";
 import { ApiError, apiGet, apiPost } from "@/lib/api";
-import type { Customer, CustomerType, NextNumber, OrderInput, OrderItem, OrderSaved, Product, RepeatOrderState } from "@/lib/types";
-import { brl, openWhatsApp, orderTotal, TYPE_LABELS, whatsappMessage } from "@/lib/format";
+import type { Customer, CustomerType, NextNumber, OrderInput, OrderItem, OrderSaved, Packaging, Product, RepeatOrderState } from "@/lib/types";
+import { brl, matchPackaging, openWhatsApp, orderTotal, TYPE_LABELS, whatsappMessage } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const PAYMENTS = ["Pix", "Dinheiro", "Cartão", "Boleto"];
@@ -27,6 +27,7 @@ export default function NewOrder() {
   const nextQ = useQuery({ queryKey: ["next-number"], queryFn: () => apiGet<NextNumber>("/orders/next-number") });
   const productsQ = useQuery({ queryKey: ["products"], queryFn: () => apiGet<Product[]>("/products") });
   const customersQ = useQuery({ queryKey: ["customers"], queryFn: () => apiGet<Customer[]>("/customers") });
+  const packagingQ = useQuery({ queryKey: ["packaging"], queryFn: () => apiGet<Packaging[]>("/packaging") });
 
   // null = untouched (show suggested next number); "" = user cleared the field to type a new one.
   const [numberText, setNumberText] = useState<string | null>(null);
@@ -48,6 +49,23 @@ export default function NewOrder() {
   const suggested = nextQ.isError ? "" : String(nextQ.data?.next_number ?? "");
   const numberValue = numberText ?? suggested;
   const total = orderTotal({ items });
+
+  // Projected packaging stock after this order (same matching rule as the backend).
+  const stockAlerts = useMemo(() => {
+    const packs = packagingQ.isError ? [] : (packagingQ.data ?? []);
+    const need = new Map<string, number>();
+    for (const i of items) {
+      const p = matchPackaging(i.name, packs);
+      if (p) need.set(p.id, (need.get(p.id) ?? 0) + i.quantity);
+    }
+    return packs
+      .filter((p) => need.has(p.id))
+      .map((p) => {
+        const n = need.get(p.id) ?? 0;
+        return { id: p.id, name: p.name, quantity: p.quantity, min: p.min_quantity, need: n, remaining: p.quantity - n };
+      })
+      .filter((a) => a.remaining <= a.min);
+  }, [items, packagingQ.data, packagingQ.isError]);
 
   const nameQuery = name.trim().toLowerCase();
   const suggestions =
@@ -130,7 +148,7 @@ export default function NewOrder() {
     );
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_340px] animate-rise">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_340px] animate-rise">
       <section className="space-y-6">
         <div>
           <p className={fieldLabel}>Lançamento</p>
@@ -226,9 +244,9 @@ export default function NewOrder() {
           ) : (
             <ul className="divide-y rounded-2xl border" data-testid="selected-items-list">
               {items.map((i) => (
-                <li key={i.product_id} className="flex items-center gap-3 p-3" data-testid={`selected-item-${i.product_id}`}>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">{i.name}</p>
+                <li key={i.product_id} className="flex flex-wrap items-center gap-x-3 gap-y-2 p-3" data-testid={`selected-item-${i.product_id}`}>
+                  <div className="min-w-[60%] flex-1 basis-full sm:basis-0">
+                    <p className="text-sm font-semibold leading-snug break-words">{i.name}</p>
                     <p className="text-xs text-muted-foreground">
                       {i.sku && <span className="mr-2 font-mono">{i.sku}</span>}
                       <span className="font-mono">{brl(i.price)}</span>
@@ -243,7 +261,7 @@ export default function NewOrder() {
                       <Plus />
                     </Button>
                   </div>
-                  <span className="w-24 text-right font-mono font-bold tabular-nums">{brl(i.price * i.quantity)}</span>
+                  <span className="ml-auto w-20 shrink-0 text-right font-mono text-sm font-bold tabular-nums">{brl(i.price * i.quantity)}</span>
                 </li>
               ))}
             </ul>
@@ -251,6 +269,19 @@ export default function NewOrder() {
           <Button variant="outline" className="w-full rounded-xl" onClick={() => setPickerOpen(true)} data-testid="btn-open-item-picker">
             <ListPlus /> {items.length ? "Adicionar / alterar itens" : "Selecionar itens"}
           </Button>
+          {stockAlerts.length > 0 && (
+            <div className="space-y-1.5 rounded-2xl border border-[#F2C9A0] bg-[#FFF4E8] p-4 text-sm text-[#7A3E0F] animate-rise" data-testid="order-stock-alerts">
+              <p className="flex items-center gap-2 font-semibold">
+                <AlertTriangle className="size-4 text-honey" /> Atenção ao estoque de embalagens
+              </p>
+              {stockAlerts.map((a) => (
+                <p key={a.id} data-testid={`order-stock-alert-${a.id}`} className={a.remaining < 0 ? "font-semibold text-destructive" : ""}>
+                  <strong>{a.name}</strong>: em estoque {a.quantity}, este pedido usa {a.need} →{" "}
+                  {a.remaining < 0 ? `faltarão ${-a.remaining}` : `restarão ${a.remaining} (mínimo ${a.min})`}
+                </p>
+              ))}
+            </div>
+          )}
           {productsQ.isError && (
             <p className="text-sm text-destructive" data-testid="products-error">Não foi possível carregar os produtos.</p>
           )}
