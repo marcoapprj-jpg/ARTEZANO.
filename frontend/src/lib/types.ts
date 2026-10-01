@@ -27,6 +27,7 @@ export interface OrderInput {
   items: OrderItem[];
   payment_method: string;
   payment_term: string;
+  delivery_date: string | null;
   delivery: string;
   notes: string;
 }
@@ -37,6 +38,16 @@ export interface StockMove {
   quantity: number;
 }
 
+export interface PaymentInput {
+  amount: number;
+  note: string;
+}
+
+export interface Payment extends PaymentInput {
+  id: string;
+  created_at: string;
+}
+
 export interface Order extends OrderInput {
   id: string;
   total: number;
@@ -44,6 +55,21 @@ export interface Order extends OrderInput {
   paid: boolean;
   paid_at: string | null;
   stock_moves: StockMove[];
+  payments: Payment[];
+  paid_amount: number;
+  balance: number;
+}
+
+export interface AgendaDay {
+  date: string;
+  orders: Order[];
+}
+
+export interface Agenda {
+  today: string;
+  overdue: Order[];
+  days: AgendaDay[];
+  undated: number;
 }
 
 export interface OrderSaved extends Order {
@@ -98,6 +124,9 @@ export interface Customer {
   customer_type: CustomerType;
   orders_count: number;
   last_order_at: string;
+  total_bought: number;
+  outstanding: number;
+  open_orders: number;
 }
 
 export interface PeriodSales {

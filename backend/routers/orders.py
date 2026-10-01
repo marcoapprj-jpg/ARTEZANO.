@@ -1,5 +1,5 @@
 import io
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import List
 from zoneinfo import ZoneInfo
 
@@ -9,9 +9,11 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from pymongo.errors import DuplicateKeyError
 
+from lib.dates import today_iso
 from lib.db import db
 from lib.stock import consume_for_items, restore_moves
-from models.order import NextNumber, Order, OrderInput, OrderSaved, PaidUpdate
+from models.order import (Agenda, AgendaDay, NextNumber, Order, OrderInput, OrderSaved, PaidUpdate,
+                          Payment, PaymentInput)
 
 router = APIRouter()
 
@@ -51,7 +53,8 @@ async def export_orders():
     head_font = Font(bold=True, color="FFFFFF")
     head_fill = PatternFill("solid", fgColor="3D2314")
     ws.append(["Pedido Nº", "Data", "Cliente", "Tipo", "Itens", "Total (R$)",
-               "Forma de Pagamento", "Prazo p/ Pagamento", "Entrega", "Observações", "Quitado"])
+               "Forma de Pagamento", "Prazo p/ Pagamento", "Data Entrega", "Entrega", "Observações", "Quitado",
+               "Pago (R$)", "Saldo (R$)"])
     ws2 = wb.create_sheet("Itens")
     ws2.append(["Pedido Nº", "Data", "Cliente", "Tipo", "SKU", "Produto",
                 "Quantidade", "Preço Unit. (R$)", "Subtotal (R$)"])
@@ -65,12 +68,14 @@ async def export_orders():
         items_txt = "; ".join(
             f"{i.quantity}x {i.name}" + (f" [{i.sku}]" if i.sku else "") for i in o.items
         )
+        dd = "/".join(reversed(o.delivery_date.split("-"))) if o.delivery_date else ""
         ws.append([o.number, date, o.customer_name, tipo, items_txt, round(o.total, 2),
-                   o.payment_method, o.payment_term, o.delivery, o.notes, "Sim" if o.paid else "Não"])
+                   o.payment_method, o.payment_term, dd, o.delivery, o.notes, "Sim" if o.paid else "Não",
+                   o.paid_amount, o.balance])
         for i in o.items:
             ws2.append([o.number, date, o.customer_name, tipo, i.sku, i.name, i.quantity,
                         round(i.price, 2), round(i.price * i.quantity, 2)])
-    for sheet, widths in ((ws, [11, 17, 28, 14, 60, 12, 20, 20, 22, 30, 10]),
+    for sheet, widths in ((ws, [11, 17, 28, 14, 60, 12, 20, 20, 13, 22, 30, 10, 11, 11]),
                           (ws2, [11, 17, 28, 14, 14, 36, 11, 15, 14])):
         for idx, w in enumerate(widths):
             sheet.column_dimensions[chr(65 + idx)].width = w
@@ -104,6 +109,62 @@ async def export_orders():
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/agenda", response_model=Agenda)
+async def agenda(days: int = 7):
+    """Deliveries from today (Brasília) for `days` days, plus recent overdue ones."""
+    days = max(1, min(days, 31))
+    today = date.fromisoformat(today_iso("America/Sao_Paulo"))
+    end = today + timedelta(days=days - 1)
+    since = today - timedelta(days=30)
+    docs = await db.orders.find(
+        {"delivery_date": {"$gte": since.isoformat(), "$lte": end.isoformat()}}, {"_id": 0}
+    ).sort([("delivery_date", 1), ("number", 1)]).to_list(5000)
+    orders = [Order(**d) for d in docs]
+    by_day = {(today + timedelta(days=i)).isoformat(): [] for i in range(days)}
+    overdue = []
+    for o in orders:
+        if o.delivery_date in by_day:
+            by_day[o.delivery_date].append(o)
+        else:
+            overdue.append(o)
+    undated = await db.orders.count_documents({"$or": [{"delivery_date": None}, {"delivery_date": {"$exists": False}}]})
+    return Agenda(today=today.isoformat(), overdue=overdue,
+                  days=[AgendaDay(date=k, orders=v) for k, v in by_day.items()], undated=undated)
+
+
+@router.post("/orders/{id}/payments", response_model=Order)
+async def add_payment(id: str, data: PaymentInput):
+    doc = await db.orders.find_one({"id": id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    order = Order(**doc)
+    order.payments.append(Payment(**data.model_dump()))
+    if not order.paid and order.paid_amount >= order.total - 0.005:
+        order.paid, order.paid_at = True, datetime.now(timezone.utc).isoformat()
+    await db.orders.update_one({"id": id}, {"$set": {
+        "payments": [p.model_dump() for p in order.payments], "paid": order.paid, "paid_at": order.paid_at,
+    }})
+    return order
+
+
+@router.delete("/orders/{id}/payments/{payment_id}", response_model=Order)
+async def delete_payment(id: str, payment_id: str):
+    doc = await db.orders.find_one({"id": id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    order = Order(**doc)
+    remaining = [p for p in order.payments if p.id != payment_id]
+    if len(remaining) == len(order.payments):
+        raise HTTPException(status_code=404, detail="Pagamento não encontrado")
+    order.payments = remaining
+    if order.paid and order.paid_amount < order.total - 0.005:
+        order.paid, order.paid_at = False, None
+    await db.orders.update_one({"id": id}, {"$set": {
+        "payments": [p.model_dump() for p in order.payments], "paid": order.paid, "paid_at": order.paid_at,
+    }})
+    return order
 
 
 @router.get("/orders/{id}", response_model=Order)

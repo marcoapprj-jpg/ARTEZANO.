@@ -1,7 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Order } from "@/lib/types";
-import { brl, formatDateTime, TYPE_LABELS } from "@/lib/format";
+import { brl, deliveryText, formatDateTime, TYPE_LABELS } from "@/lib/format";
 
 let logoData: string | null = null;
 // Preload the logo so PDF generation stays synchronous inside the click (share needs a user gesture).
@@ -55,7 +55,7 @@ export function buildOrderPdf(o: Order): File {
   row("Tipo:", TYPE_LABELS[o.customer_type]);
   row("Forma de pagamento:", o.payment_method);
   row("Prazo p/ pagamento:", o.payment_term);
-  row("Entrega:", o.delivery);
+  row("Entrega:", deliveryText(o));
   if (o.notes) row("Observações:", o.notes);
 
   autoTable(doc, {
@@ -79,6 +79,14 @@ export function buildOrderPdf(o: Order): File {
     doc.roundedRect(14, finalY + 4, 34, 12, 2, 2, "S");
     doc.setFontSize(16);
     doc.text("PAGO", 31, finalY + 12.5, { align: "center" });
+    doc.setTextColor(44, 24, 16);
+  } else if (o.paid_amount > 0) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.text(`Pago: ${brl(o.paid_amount)}`, W - 14, finalY + 20, { align: "right" });
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(197, 48, 48);
+    doc.text(`Saldo a pagar: ${brl(o.balance)}`, W - 14, finalY + 27, { align: "right" });
     doc.setTextColor(44, 24, 16);
   }
 

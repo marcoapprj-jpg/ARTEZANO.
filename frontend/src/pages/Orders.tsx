@@ -1,15 +1,15 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, Check, Copy, FileDown, FileSpreadsheet, MessageCircle, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, Copy, FileDown, FileSpreadsheet, MessageCircle, Plus, Search, Trash2, Wallet, X } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { apiDelete, apiGet, apiPatch } from "@/lib/api";
-import type { Order, OrderItem, Product, RepeatOrderState } from "@/lib/types";
-import { brl, formatDateTime, openWhatsApp, TYPE_LABELS, whatsappMessage } from "@/lib/format";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
+import type { Order, OrderItem, PaymentInput, Product, RepeatOrderState } from "@/lib/types";
+import { brl, customerPath, deliveryText, formatDateTime, openWhatsApp, TYPE_LABELS, whatsappMessage } from "@/lib/format";
 import { shareOrderPdf } from "@/lib/pdf";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +47,44 @@ export default function Orders() {
 
   const [paidFilter, setPaidFilter] = useState<"all" | "open" | "paid">("all");
   const [unpayTarget, setUnpayTarget] = useState<Order | null>(null);
+  const [payAmount, setPayAmount] = useState("");
+  const [payNote, setPayNote] = useState("");
+  const [params, setParams] = useSearchParams();
+
+  // Deep link: /pedidos?pedido=<id> opens that order's dialog (used by Agenda and Clientes).
+  const deepId = params.get("pedido");
+  useEffect(() => {
+    if (!deepId || !ordersQ.data) return;
+    const o = ordersQ.data.find((x) => x.id === deepId);
+    if (o) setSelected(o);
+    setParams({}, { replace: true });
+  }, [deepId, ordersQ.data, setParams]);
+
+  const afterPayment = (o: Order) => {
+    setSelected(o);
+    setPayAmount("");
+    setPayNote("");
+    qc.invalidateQueries({ queryKey: ["orders"] });
+    qc.invalidateQueries({ queryKey: ["receivables"] });
+    qc.invalidateQueries({ queryKey: ["customers"] });
+    qc.invalidateQueries({ queryKey: ["agenda"] });
+  };
+  const addPayM = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: PaymentInput }) => apiPost<Order>(`/orders/${id}/payments`, body),
+    onSuccess: (o) => {
+      toast.success(o.paid ? `Pagamento registrado — pedido nº ${o.number} quitado!` : `Pagamento registrado — saldo ${brl(o.balance)}`);
+      afterPayment(o);
+    },
+    onError: () => toast.error("Não foi possível registrar o pagamento"),
+  });
+  const removePayM = useMutation({
+    mutationFn: ({ id, paymentId }: { id: string; paymentId: string }) => apiDelete<Order>(`/orders/${id}/payments/${paymentId}`),
+    onSuccess: (o) => {
+      toast.success("Pagamento removido");
+      afterPayment(o);
+    },
+    onError: () => toast.error("Não foi possível remover o pagamento"),
+  });
 
   const list = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -66,6 +104,7 @@ export default function Orders() {
       setUnpayTarget(null);
       qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["receivables"] });
+      qc.invalidateQueries({ queryKey: ["agenda"] });
     },
     onError: () => toast.error("Não foi possível atualizar o pagamento"),
   });
@@ -86,6 +125,7 @@ export default function Orders() {
       qc.invalidateQueries({ queryKey: ["customers"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["receivables"] });
+      qc.invalidateQueries({ queryKey: ["agenda"] });
       qc.invalidateQueries({ queryKey: ["packaging"] });
     },
     onError: () => toast.error("Não foi possível excluir"),
@@ -196,7 +236,12 @@ export default function Orders() {
                   {TYPE_LABELS[o.customer_type]}
                 </Badge>
               </div>
-              <span className="font-mono font-bold tabular-nums text-caramel">{brl(o.total)}</span>
+              <span className="flex flex-col items-end">
+                <span className="font-mono font-bold tabular-nums text-caramel">{brl(o.total)}</span>
+                {!o.paid && o.paid_amount > 0 && (
+                  <span className="font-mono text-[11px] text-destructive" data-testid={`card-order-balance-${o.id}`}>saldo {brl(o.balance)}</span>
+                )}
+              </span>
             </button>
             <button
               type="button"
@@ -268,7 +313,11 @@ export default function Orders() {
               </DialogHeader>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
                 <dt className="text-muted-foreground">Cliente</dt>
-                <dd className="font-semibold" data-testid="order-detail-customer">{selected.customer_name}</dd>
+                <dd className="font-semibold" data-testid="order-detail-customer">
+                  <Link to={customerPath(selected.customer_name)} className="text-caramel underline-offset-2 hover:underline" data-testid="order-detail-customer-link">
+                    {selected.customer_name}
+                  </Link>
+                </dd>
                 <dt className="text-muted-foreground">Tipo</dt>
                 <dd>{TYPE_LABELS[selected.customer_type]}</dd>
                 <dt className="text-muted-foreground">Pagamento</dt>
@@ -276,7 +325,7 @@ export default function Orders() {
                 <dt className="text-muted-foreground">Prazo</dt>
                 <dd>{selected.payment_term || "-"}</dd>
                 <dt className="text-muted-foreground">Entrega</dt>
-                <dd>{selected.delivery || "-"}</dd>
+                <dd>{deliveryText(selected) || "-"}</dd>
                 {selected.notes && (
                   <>
                     <dt className="text-muted-foreground">Obs.</dt>
@@ -299,6 +348,55 @@ export default function Orders() {
                   <span className="font-mono text-caramel" data-testid="order-detail-total">{brl(selected.total)}</span>
                 </li>
               </ul>
+              <div className="space-y-3 rounded-xl border bg-[#FAF6F0] p-3" data-testid="order-payments">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-1.5 font-semibold"><Wallet className="size-4 text-honey" /> Pagamentos</span>
+                  <span className="font-mono text-xs">
+                    pago <strong data-testid="order-paid-amount">{brl(selected.paid_amount)}</strong> · saldo{" "}
+                    <strong className={selected.balance > 0 ? "text-destructive" : "text-[#1E7E34]"} data-testid="order-balance">{brl(selected.balance)}</strong>
+                  </span>
+                </div>
+                {selected.payments.length > 0 && (
+                  <ul className="divide-y rounded-lg border bg-card text-sm" data-testid="order-payments-list">
+                    {selected.payments.map((p) => (
+                      <li key={p.id} className="flex items-center gap-2 px-3 py-2" data-testid={`payment-${p.id}`}>
+                        <span className="font-mono font-semibold text-[#1E7E34]">{brl(p.amount)}</span>
+                        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                          {formatDateTime(p.created_at)}{p.note ? ` · ${p.note}` : ""}
+                        </span>
+                        <Button
+                          size="icon-xs"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          disabled={removePayM.isPending}
+                          onClick={() => window.confirm(`Remover o pagamento de ${brl(p.amount)}?`) && removePayM.mutate({ id: selected.id, paymentId: p.id })}
+                          data-testid={`btn-remove-payment-${p.id}`}
+                          aria-label="Remover pagamento"
+                        >
+                          <X />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {!selected.paid && (
+                  <form
+                    className="flex gap-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const amount = parseFloat(payAmount.replace(/\./g, "").replace(",", "."));
+                      if (!amount || amount <= 0) return toast.error("Informe o valor recebido");
+                      addPayM.mutate({ id: selected.id, body: { amount, note: payNote.trim() } });
+                    }}
+                  >
+                    <Input inputMode="decimal" placeholder="Valor R$" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} className="w-28 bg-card font-mono" data-testid="input-payment-amount" />
+                    <Input placeholder="Obs. (Pix, dinheiro…)" value={payNote} onChange={(e) => setPayNote(e.target.value)} className="min-w-0 flex-1 bg-card" data-testid="input-payment-note" />
+                    <Button type="submit" disabled={addPayM.isPending} data-testid="btn-add-payment">
+                      <Plus />
+                    </Button>
+                  </form>
+                )}
+              </div>
               <div className="grid gap-2">
                 <Button
                   className="h-11 rounded-xl bg-whats font-semibold text-[#0D3B1E] hover:bg-whats/90"

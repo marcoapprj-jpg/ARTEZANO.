@@ -20,6 +20,15 @@ export const orderTotal = (o: Pick<OrderInput, "items">) =>
 export const formatDateTime = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
+/** "2026-10-15" → "15/10/2026" (no timezone math: it's a calendar date). */
+export const formatDateBR = (ymd: string | null | undefined) => (ymd ? ymd.split("-").reverse().join("/") : "");
+
+/** Delivery line combining date and free text. */
+export const deliveryText = (o: Pick<OrderInput, "delivery_date" | "delivery">) =>
+  [formatDateBR(o.delivery_date), o.delivery].filter(Boolean).join(" · ");
+
+export const customerPath = (name: string) => `/clientes/${encodeURIComponent(name.trim())}`;
+
 export function whatsappMessage(o: OrderInput | Order): string {
   const lines: string[] = [
     "🍮 *ARTEZANO PUDIM*",
@@ -38,19 +47,21 @@ export function whatsappMessage(o: OrderInput | Order): string {
     "",
     `*Forma de pagamento:* ${o.payment_method || "-"}`,
     `*Prazo para pagamento:* ${o.payment_term || "-"}`,
-    `*Entrega:* ${o.delivery || "-"}`,
+    `*Entrega:* ${deliveryText(o) || "-"}`,
   ];
   if (o.notes) lines.push(`*Observações:* ${o.notes}`);
   if ("paid" in o && o.paid) lines.push("", "✅ *PAGO*");
+  else if ("paid" in o && o.paid_amount > 0)
+    lines.push("", `*Pago:* ${brl(o.paid_amount)}`, `*Saldo a pagar:* ${brl(o.balance)}`);
   lines.push("", "_Artezano Pudim — feito com carinho_");
   return lines.join("\n");
 }
 
 export const whatsappUrl = (text: string) => `https://wa.me/?text=${encodeURIComponent(text)}`;
 
-/** Statement of a customer's unpaid orders, items in bold. */
+/** Statement of a customer's open orders (balance after partial payments), items in bold. */
 export function customerStatement(name: string, orders: Order[]): string {
-  const total = orders.reduce((s, o) => s + o.total, 0);
+  const total = orders.reduce((s, o) => s + o.balance, 0);
   const lines: string[] = [
     "🍮 *ARTEZANO PUDIM*",
     "*EXTRATO DE PEDIDOS EM ABERTO*",
@@ -62,11 +73,18 @@ export function customerStatement(name: string, orders: Order[]): string {
     lines.push(`*Pedido Nº ${o.number}* — ${new Date(o.created_at).toLocaleDateString("pt-BR")} — *${brl(o.total)}*`);
     for (const i of o.items) lines.push(`  • *${i.quantity}x ${i.name}*`);
     if (o.payment_term) lines.push(`  _Prazo: ${o.payment_term}_`);
+    if (o.paid_amount > 0) lines.push(`  _Pago: ${brl(o.paid_amount)} · Saldo: ${brl(o.balance)}_`);
     lines.push("");
   }
   lines.push(`*TOTAL EM ABERTO: ${brl(total)}*`, `(${orders.length} pedido(s))`, "", "_Artezano Pudim — feito com carinho_");
   return lines.join("\n");
 }
+
+/** Orders of a customer still with something to receive. */
+export const openOrdersOf = (orders: Order[], name: string) => {
+  const key = name.trim().toLowerCase();
+  return orders.filter((o) => o.balance > 0 && o.customer_name.trim().toLowerCase() === key);
+};
 
 const normName = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s+/g, " ").trim();

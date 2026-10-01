@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, HTTPException
 
 from lib.db import db
+from models.order import Order
 from models.report import Customer, PeriodSales, ProductSales, Receivables, CustomerReceivable, SalesReport
 
 router = APIRouter()
@@ -20,39 +21,45 @@ def _local(iso: str) -> datetime:
 
 @router.get("/customers", response_model=List[Customer])
 async def list_customers():
-    """Distinct past customers (case-insensitive), most recent first, with their last customer type."""
-    docs = await db.orders.find(
-        {}, {"_id": 0, "customer_name": 1, "customer_type": 1, "created_at": 1}
-    ).sort("created_at", -1).to_list(20000)
+    """Distinct past customers (case-insensitive), most recent first, with totals and amount still due."""
+    docs = await db.orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(20000)
     seen: dict[str, Customer] = {}
     for d in docs:
-        key = d["customer_name"].strip().lower()
-        if key in seen:
-            seen[key].orders_count += 1
-        else:
-            seen[key] = Customer(name=d["customer_name"].strip(), customer_type=d["customer_type"],
-                                 orders_count=1, last_order_at=d["created_at"])
+        o = Order(**d)
+        key = o.customer_name.strip().lower()
+        c = seen.get(key)
+        if not c:
+            c = seen[key] = Customer(name=o.customer_name.strip(), customer_type=o.customer_type,
+                                     orders_count=0, last_order_at=o.created_at)
+        c.orders_count += 1
+        c.total_bought = round(c.total_bought + o.total, 2)
+        if o.balance > 0:
+            c.outstanding = round(c.outstanding + o.balance, 2)
+            c.open_orders += 1
     return list(seen.values())
 
 
 @router.get("/reports/receivables", response_model=Receivables)
 async def receivables():
-    """Unpaid orders grouped by customer (case-insensitive name), biggest balance first."""
-    docs = await db.orders.find(
-        {"paid": {"$ne": True}}, {"_id": 0, "customer_name": 1, "total": 1, "created_at": 1}
-    ).sort("created_at", 1).to_list(20000)
+    """Open balances (total minus partial payments) grouped by customer, biggest first."""
+    docs = await db.orders.find({"paid": {"$ne": True}}, {"_id": 0}).sort("created_at", 1).to_list(20000)
     groups: dict[str, CustomerReceivable] = {}
+    count = 0
     for d in docs:
-        key = d["customer_name"].strip().lower()
+        o = Order(**d)
+        if o.balance <= 0:
+            continue
+        count += 1
+        key = o.customer_name.strip().lower()
         g = groups.get(key)
         if g:
             g.orders += 1
-            g.total = round(g.total + d["total"], 2)
+            g.total = round(g.total + o.balance, 2)
         else:
-            groups[key] = CustomerReceivable(name=d["customer_name"].strip(), orders=1,
-                                             total=round(d["total"], 2), oldest_order_at=d["created_at"])
+            groups[key] = CustomerReceivable(name=o.customer_name.strip(), orders=1,
+                                             total=o.balance, oldest_order_at=o.created_at)
     customers = sorted(groups.values(), key=lambda c: -c.total)
-    return Receivables(total=round(sum(c.total for c in customers), 2), orders=len(docs), customers=customers)
+    return Receivables(total=round(sum(c.total for c in customers), 2), orders=count, customers=customers)
 
 
 @router.get("/reports/sales", response_model=SalesReport)

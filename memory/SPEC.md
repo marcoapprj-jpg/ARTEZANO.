@@ -44,3 +44,9 @@ No auth.
 - Customer statement: /vendas receivables rows have "Enviar extrato" → WhatsApp text with all unpaid orders of that customer (items bold) + total due.
 - Order screen stock alert: projected packaging after selected items; shows panel when remaining <= min (red if negative). Not blocking.
 - Excel export (/api/orders/export) also has sheets "Estoque Embalagens" (current stock) and "Movimentações Estoque" (stock_log).
+- Partial payments: order.payments [{id, amount, note, created_at}]; computed paid_amount and balance (0 if paid). POST /orders/{id}/payments {amount, note}
+  (auto-marks paid when sum >= total), DELETE /orders/{id}/payments/{pid} (reopens if sum < total). Receivables/statement/customers use balance.
+- Delivery date: order.delivery_date (YYYY-MM-DD, optional) + delivery free text (time/place). GET /agenda?days=7 → {today (Brasília), overdue (last 30 days), days[{date, orders}], undated}.
+  /agenda page: today + 6 days, per-day "Preparar" totals and weekly production sidebar; click order → /pedidos?pedido=<id> opens its dialog.
+- Customers: GET /customers includes total_bought, outstanding, open_orders. /clientes list, /clientes/:name detail (totals, received, open, order history, statement, new order).
+- Mobile nav: Pedido, Histórico, Agenda, Clientes, Mais (Vendas, Estoque, Produtos). Desktop (lg+) shows all.

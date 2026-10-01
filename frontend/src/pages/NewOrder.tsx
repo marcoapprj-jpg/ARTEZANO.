@@ -37,6 +37,7 @@ export default function NewOrder() {
   const [payment, setPayment] = useState(repeat?.payment_method ?? "");
   const [term, setTerm] = useState(repeat?.payment_term ?? "");
   const [delivery, setDelivery] = useState("");
+  const [deliveryDate, setDeliveryDate] = useState("");
   const [notes, setNotes] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [nameFocused, setNameFocused] = useState(false);
@@ -88,6 +89,7 @@ export default function NewOrder() {
     setPayment("");
     setTerm("");
     setDelivery("");
+    setDeliveryDate("");
     setNotes("");
   };
 
@@ -107,6 +109,7 @@ export default function NewOrder() {
       items,
       payment_method: payment,
       payment_term: term,
+      delivery_date: deliveryDate || null,
       delivery,
       notes,
     };
@@ -124,6 +127,7 @@ export default function NewOrder() {
       qc.invalidateQueries({ queryKey: ["customers"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["receivables"] });
+      qc.invalidateQueries({ queryKey: ["agenda"] });
     } catch (e) {
       pre?.close();
       const detail = e instanceof ApiError ? (e.body as { detail?: unknown } | null)?.detail : null;
@@ -298,9 +302,15 @@ export default function NewOrder() {
             <ChipGroup options={TERMS} value={term} onChange={setTerm} testPrefix="chip-term" />
             <Input value={term} onChange={(e) => setTerm(e.target.value)} placeholder="Ou digite outro prazo" className="bg-[#FAF6F0]" data-testid="input-payment-term" />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="delivery" className={fieldLabel}>Entrega</Label>
-            <Input id="delivery" value={delivery} onChange={(e) => setDelivery(e.target.value)} placeholder="Ex.: 15/03 às 14h, retirada na loja" className="bg-[#FAF6F0]" data-testid="input-delivery-date" />
+          <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
+            <div className="space-y-2">
+              <Label htmlFor="delivery-date" className={fieldLabel}>Data de entrega</Label>
+              <Input id="delivery-date" type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} className="bg-[#FAF6F0]" data-testid="input-delivery-day" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="delivery" className={fieldLabel}>Entrega (horário / local)</Label>
+              <Input id="delivery" value={delivery} onChange={(e) => setDelivery(e.target.value)} placeholder="Ex.: 14h, retirada na loja" className="bg-[#FAF6F0]" data-testid="input-delivery-date" />
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="notes" className={fieldLabel}>Observações</Label>

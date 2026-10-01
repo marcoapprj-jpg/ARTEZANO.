@@ -10,6 +10,9 @@ class Customer(BaseModel):
     customer_type: CustomerType
     orders_count: int
     last_order_at: str
+    total_bought: float = 0
+    outstanding: float = 0
+    open_orders: int = 0
 
 
 class PeriodSales(BaseModel):

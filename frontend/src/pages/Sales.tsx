@@ -6,7 +6,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { Button } from "@/components/ui/button";
 import { apiGet } from "@/lib/api";
 import type { Order, Receivables, SalesReport } from "@/lib/types";
-import { brl, customerStatement, formatDateTime, openWhatsApp } from "@/lib/format";
+import { brl, customerStatement, formatDateTime, openOrdersOf, openWhatsApp } from "@/lib/format";
 
 const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const monthLabel = (ym: string) => `${MONTHS[parseInt(ym.slice(5, 7), 10) - 1]}/${ym.slice(2, 4)}`;
@@ -33,8 +33,7 @@ export default function Sales() {
   const ordersQ = useQuery({ queryKey: ["orders"], queryFn: () => apiGet<Order[]>("/orders") });
 
   const sendStatement = (name: string) => {
-    const key = name.trim().toLowerCase();
-    const open = (ordersQ.data ?? []).filter((o) => !o.paid && o.customer_name.trim().toLowerCase() === key);
+    const open = openOrdersOf(ordersQ.data ?? [], name);
     if (open.length === 0) return toast.error("Pedidos ainda carregando — tente novamente");
     openWhatsApp(customerStatement(name, open));
   };
