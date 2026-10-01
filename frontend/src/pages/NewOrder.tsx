@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ListPlus, Minus, Plus, Save, Send, Trash2 } from "lucide-react";
+import { ListPlus, Minus, Plus, Save, Send, Trash2, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import ItemPicker from "@/components/ItemPicker";
 import ChipGroup from "@/components/ChipGroup";
 import { ApiError, apiGet, apiPost } from "@/lib/api";
-import type { CustomerType, NextNumber, Order, OrderInput, OrderItem, Product } from "@/lib/types";
+import type { Customer, CustomerType, NextNumber, Order, OrderInput, OrderItem, Product, RepeatOrderState } from "@/lib/types";
 import { brl, openWhatsApp, orderTotal, TYPE_LABELS, whatsappMessage } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -20,25 +21,50 @@ const fieldLabel = "text-xs font-semibold uppercase tracking-wider text-[#8C6F5E
 
 export default function NewOrder() {
   const qc = useQueryClient();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const repeat = (location.state as RepeatOrderState | null)?.repeat;
   const nextQ = useQuery({ queryKey: ["next-number"], queryFn: () => apiGet<NextNumber>("/orders/next-number") });
   const productsQ = useQuery({ queryKey: ["products"], queryFn: () => apiGet<Product[]>("/products") });
+  const customersQ = useQuery({ queryKey: ["customers"], queryFn: () => apiGet<Customer[]>("/customers") });
 
-  const [numberText, setNumberText] = useState("");
-  const [name, setName] = useState("");
-  const [type, setType] = useState<CustomerType>("cliente_final");
-  const [items, setItems] = useState<OrderItem[]>([]);
-  const [payment, setPayment] = useState("");
-  const [term, setTerm] = useState("");
+  // null = untouched (show suggested next number); "" = user cleared the field to type a new one.
+  const [numberText, setNumberText] = useState<string | null>(null);
+  const [name, setName] = useState(repeat?.customer_name ?? "");
+  const [type, setType] = useState<CustomerType>(repeat?.customer_type ?? "cliente_final");
+  const [items, setItems] = useState<OrderItem[]>(repeat?.items ?? []);
+  const [payment, setPayment] = useState(repeat?.payment_method ?? "");
+  const [term, setTerm] = useState(repeat?.payment_term ?? "");
   const [delivery, setDelivery] = useState("");
   const [notes, setNotes] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [nameFocused, setNameFocused] = useState(false);
+
+  // Consume the one-shot repeat state so a reload doesn't prefill again.
+  useEffect(() => {
+    if (repeat) navigate(".", { replace: true, state: null });
+  }, [repeat, navigate]);
 
   const suggested = nextQ.isError ? "" : String(nextQ.data?.next_number ?? "");
-  const numberValue = numberText !== "" ? numberText : suggested;
+  const numberValue = numberText ?? suggested;
   const total = orderTotal({ items });
 
+  const nameQuery = name.trim().toLowerCase();
+  const suggestions =
+    nameFocused && nameQuery.length >= 2 && !customersQ.isError
+      ? (customersQ.data ?? [])
+          .filter((c) => c.name.toLowerCase().includes(nameQuery) && c.name.toLowerCase() !== nameQuery)
+          .slice(0, 6)
+      : [];
+
+  const pickCustomer = (c: Customer) => {
+    setName(c.name);
+    setNameFocused(false);
+    if (items.length === 0) setType(c.customer_type);
+  };
+
   const reset = () => {
-    setNumberText("");
+    setNumberText(null);
     setName("");
     setItems([]);
     setPayment("");
@@ -75,12 +101,14 @@ export default function NewOrder() {
       reset();
       qc.invalidateQueries({ queryKey: ["next-number"] });
       qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
     } catch (e) {
       pre?.close();
       const detail = e instanceof ApiError ? (e.body as { detail?: unknown } | null)?.detail : null;
       toast.error(typeof detail === "string" ? detail : "Não foi possível salvar o pedido");
       if (e instanceof ApiError && e.status === 409) {
-        setNumberText("");
+        setNumberText(null);
         qc.invalidateQueries({ queryKey: ["next-number"] });
       }
     }
@@ -120,16 +148,43 @@ export default function NewOrder() {
               data-testid="input-order-number"
             />
           </div>
-          <div className="space-y-2">
+          <div className="relative space-y-2">
             <Label htmlFor="name" className={fieldLabel}>Nome</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onFocus={() => setNameFocused(true)}
+              onBlur={() => setTimeout(() => setNameFocused(false), 150)}
               placeholder="Nome do cliente"
+              autoComplete="off"
               className="h-12 bg-[#FAF6F0] text-base"
               data-testid="input-customer-name"
             />
+            {suggestions.length > 0 && (
+              <ul
+                className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-2xl border bg-card shadow-xl animate-rise"
+                data-testid="customer-suggestions"
+              >
+                {suggestions.map((c, idx) => (
+                  <li key={c.name}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => pickCustomer(c)}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-[#FFF7EE]"
+                      data-testid={`customer-suggestion-${idx}`}
+                    >
+                      <UserRound className="size-4 text-caramel" />
+                      <span className="flex-1 truncate font-medium">{c.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {TYPE_LABELS[c.customer_type]} · {c.orders_count} pedido(s)
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 

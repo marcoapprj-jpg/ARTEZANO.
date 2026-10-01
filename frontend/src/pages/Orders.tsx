@@ -1,23 +1,49 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { FileDown, FileSpreadsheet, MessageCircle, Search, Trash2 } from "lucide-react";
+import { Copy, FileDown, FileSpreadsheet, MessageCircle, Search, Trash2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiDelete, apiGet } from "@/lib/api";
-import type { Order } from "@/lib/types";
+import type { Order, OrderItem, Product, RepeatOrderState } from "@/lib/types";
 import { brl, formatDateTime, openWhatsApp, TYPE_LABELS, whatsappMessage } from "@/lib/format";
 import { shareOrderPdf } from "@/lib/pdf";
 import { cn } from "@/lib/utils";
 
 export default function Orders() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const ordersQ = useQuery({ queryKey: ["orders"], queryFn: () => apiGet<Order[]>("/orders") });
+  const productsQ = useQuery({ queryKey: ["products"], queryFn: () => apiGet<Product[]>("/products") });
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Order | null>(null);
   const [sharing, setSharing] = useState(false);
+
+  // Copy an old order into the new-order form, using current catalog names/prices (deleted products are dropped).
+  const repeatOrder = (o: Order) => {
+    const catalog = new Map((productsQ.data ?? []).map((p) => [p.id, p]));
+    const items: OrderItem[] = productsQ.data
+      ? o.items.flatMap((i) => {
+          const p = catalog.get(i.product_id);
+          return p ? [{ ...i, name: p.name, sku: p.sku, price: p.price }] : [];
+        })
+      : o.items;
+    if (items.length < o.items.length) toast.info("Alguns itens não existem mais no catálogo e foram removidos");
+    const state: RepeatOrderState = {
+      repeat: {
+        customer_name: o.customer_name,
+        customer_type: o.customer_type,
+        items,
+        payment_method: o.payment_method,
+        payment_term: o.payment_term,
+      },
+    };
+    navigate("/", { state });
+    toast.success(`Pedido nº ${o.number} copiado — confira e salve`);
+  };
 
   const list = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -32,6 +58,8 @@ export default function Orders() {
       setSelected(null);
       qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["next-number"] });
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
     },
     onError: () => toast.error("Não foi possível excluir"),
   });
@@ -177,6 +205,14 @@ export default function Orders() {
                   data-testid={`btn-resend-whatsapp-${selected.id}`}
                 >
                   <MessageCircle /> Reenviar texto no WhatsApp
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-11 rounded-xl border-caramel/40 text-caramel hover:text-caramel"
+                  onClick={() => repeatOrder(selected)}
+                  data-testid={`btn-repeat-order-${selected.id}`}
+                >
+                  <Copy /> Repetir pedido
                 </Button>
                 <Button
                   variant="ghost"

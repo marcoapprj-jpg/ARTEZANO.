@@ -9,6 +9,11 @@ Multi-user (no login, shared link) order launcher for a pudim bakery. UI in pt-B
   (opens wa.me/?text= with items in *bold*, contact chosen in WhatsApp) and "Apenas salvar". After save form resets with next number.
 - `/pedidos` Histórico: search, Excel export (`/api/orders/export`, sheets "Pedidos" and "Itens" incl. SKU), click card → dialog with
   "Enviar PDF pelo WhatsApp" (jsPDF, navigator.share with files, falls back to download), "Reenviar texto", "Excluir".
+- Order number field is fully editable (can be cleared and retyped). Next suggestion = number of the LAST SAVED order + 1 (skips taken numbers).
+- Customer autocomplete on Nome (>=2 letters) from past orders (`GET /api/customers`); picking sets customer type if no items yet.
+- "Repetir pedido" in history dialog → prefills Novo pedido (name, type, items at current catalog prices, payment, term) via router state.
+- `/vendas` Vendas: month selector, month total/orders, daily bar chart, last-12-months chart, top 10 products (`GET /api/reports/sales?month=YYYY-MM`, tz America/Sao_Paulo).
+- WhatsApp text and PDF do NOT include SKU (Excel export still does).
 - `/produtos` Catálogo: create / edit (name, SKU, price) / delete.
 
 ## Rules

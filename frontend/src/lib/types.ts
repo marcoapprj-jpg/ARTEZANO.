@@ -40,3 +40,37 @@ export interface Order extends OrderInput {
 export interface NextNumber {
   next_number: number;
 }
+
+// Mirrors backend/models/report.py
+export interface Customer {
+  name: string;
+  customer_type: CustomerType;
+  orders_count: number;
+  last_order_at: string;
+}
+
+export interface PeriodSales {
+  period: string;
+  orders: number;
+  total: number;
+}
+
+export interface ProductSales {
+  name: string;
+  quantity: number;
+  total: number;
+}
+
+export interface SalesReport {
+  month: string;
+  month_total: number;
+  month_orders: number;
+  days: PeriodSales[];
+  months: PeriodSales[];
+  top_products: ProductSales[];
+}
+
+/** Router state used to prefill the new-order form from an old order. */
+export interface RepeatOrderState {
+  repeat: Pick<OrderInput, "customer_name" | "customer_type" | "items" | "payment_method" | "payment_term">;
+}

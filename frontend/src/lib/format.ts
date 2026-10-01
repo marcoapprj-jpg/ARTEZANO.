@@ -31,7 +31,7 @@ export function whatsappMessage(o: OrderInput | Order): string {
     "*ITENS:*",
     ...o.items.map(
       (i) =>
-        `• *${i.quantity}x ${i.name}${i.sku ? ` (SKU ${i.sku})` : ""} — ${brl(i.price * i.quantity)}*`,
+        `• *${i.quantity}x ${i.name} — ${brl(i.price * i.quantity)}*`,
     ),
     "",
     `*TOTAL: ${brl(orderTotal(o))}*`,

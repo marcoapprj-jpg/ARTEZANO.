@@ -33,8 +33,12 @@ async def list_orders():
 
 @router.get("/orders/next-number", response_model=NextNumber)
 async def next_number():
-    last = await db.orders.find_one({}, {"_id": 0, "number": 1}, sort=[("number", -1)])
-    return NextNumber(next_number=(last["number"] + 1) if last else 1)
+    # Next = last saved order's number + 1 (skipping numbers already taken).
+    last = await db.orders.find_one({}, {"_id": 0, "number": 1}, sort=[("created_at", -1)])
+    n = (last["number"] + 1) if last else 1
+    while await db.orders.find_one({"number": n}, {"_id": 1}):
+        n += 1
+    return NextNumber(next_number=n)
 
 
 @router.get("/orders/export")

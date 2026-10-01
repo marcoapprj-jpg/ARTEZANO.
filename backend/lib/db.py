@@ -26,6 +26,7 @@ INDEXES: dict[str, list[IndexModel]] = {
     "orders": [
         IndexModel([("id", ASCENDING)], name="id", unique=True),
         IndexModel([("number", DESCENDING)], name="number", unique=True),
+        IndexModel([("created_at", DESCENDING)], name="created_at"),
     ],
 }
 

@@ -1,11 +1,12 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { ClipboardList, History, Package } from "lucide-react";
+import { BarChart3, ClipboardList, History, Package } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/", label: "Novo pedido", icon: ClipboardList, id: "nav-new-order" },
   { to: "/pedidos", label: "Histórico", icon: History, id: "nav-history" },
+  { to: "/vendas", label: "Vendas", icon: BarChart3, id: "nav-sales" },
   { to: "/produtos", label: "Produtos", icon: Package, id: "nav-products" },
 ];
 
@@ -52,7 +53,7 @@ export default function AppShell() {
         <Outlet />
       </main>
 
-      <nav className="fixed inset-x-3 bottom-3 z-30 grid grid-cols-3 gap-1 rounded-2xl border border-white/10 bg-cocoa/95 p-1.5 shadow-2xl backdrop-blur-md md:hidden">
+      <nav className="fixed inset-x-3 bottom-3 z-30 grid grid-cols-3 gap-1 rounded-2xl border border-white/10 bg-cocoa/95 p-1.5 shadow-2xl backdrop-blur-md md:hidden" style={{ gridTemplateColumns: `repeat(${NAV.length}, minmax(0, 1fr))` }}>
         {NAV.map((n) => (
           <NavLink
             key={n.to}

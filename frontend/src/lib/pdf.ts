@@ -60,13 +60,13 @@ export function buildOrderPdf(o: Order): File {
 
   autoTable(doc, {
     startY: y + 3,
-    head: [["SKU", "Item", "Qtd", "Preço unit.", "Subtotal"]],
-    body: o.items.map((i) => [i.sku || "-", i.name, String(i.quantity), brl(i.price), brl(i.price * i.quantity)]),
+    head: [["Item", "Qtd", "Preço unit.", "Subtotal"]],
+    body: o.items.map((i) => [i.name, String(i.quantity), brl(i.price), brl(i.price * i.quantity)]),
     styles: { fontSize: 10, cellPadding: 3, textColor: [44, 24, 16] },
     bodyStyles: { fontStyle: "bold" },
     headStyles: { fillColor: [184, 93, 25], textColor: 255 },
     alternateRowStyles: { fillColor: [251, 247, 242] },
-    columnStyles: { 2: { halign: "center" }, 3: { halign: "right" }, 4: { halign: "right" } },
+    columnStyles: { 1: { halign: "center" }, 2: { halign: "right" }, 3: { halign: "right" } },
   });
   const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
   doc.setFont("helvetica", "bold");
